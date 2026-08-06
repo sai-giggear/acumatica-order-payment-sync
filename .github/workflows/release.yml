@@ -1,0 +1,65 @@
+name: Release
+
+# Push a tag, get an installable zip. Sites pick it up from the release asset.
+#   git tag v2.2.0 && git push origin v2.2.0
+on:
+  push:
+    tags:
+      - 'v*'
+
+permissions:
+  contents: write
+
+jobs:
+  release:
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: shivammathur/setup-php@v2
+        with:
+          php-version: '8.3'
+
+      # The Version header is the only place the version is written, and
+      # ACUMATICA_SYNC_VERSION is read from it. A tag that disagrees ships a
+      # release whose zip installs as a different version, so refuse to build.
+      - name: Version must agree with the tag
+        run: |
+          tag="${GITHUB_REF_NAME#v}"
+          header=$(grep -oP '^\s*\*\s*Version:\s*\K\S+' acumatica-order-payment-sync.php)
+          echo "tag=$tag header=$header"
+          if [ "$tag" != "$header" ]; then
+            echo "::error::Version mismatch. Bump the Version header to $tag."
+            exit 1
+          fi
+
+      - name: Lint
+        run: find . -name '*.php' -not -path './vendor/*' -print0 | xargs -0 -n1 -P4 php -l
+
+      # zend.assertions is -1 in the production ini setup-php installs, which
+      # compiles every assert() out. The script would print "ok" without having
+      # checked anything, so the flag is the difference between a gate and a
+      # decoration.
+      - name: Self-check
+        run: php -d zend.assertions=1 test-resend-kind.php
+
+      - name: Build zip
+        run: |
+          mkdir -p build/acumatica-order-payment-sync
+          rsync -a \
+            --exclude='.git' \
+            --exclude='.github' \
+            --exclude='.gitignore' \
+            --exclude='build' \
+            --exclude='test-resend-kind.php' \
+            ./ build/acumatica-order-payment-sync/
+          cd build && zip -qr ../acumatica-order-payment-sync.zip acumatica-order-payment-sync
+
+      - name: Publish
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh release create "$GITHUB_REF_NAME" --generate-notes --title "$GITHUB_REF_NAME" \
+            || echo "Release already exists, uploading asset to it."
+          gh release upload "$GITHUB_REF_NAME" acumatica-order-payment-sync.zip --clobber

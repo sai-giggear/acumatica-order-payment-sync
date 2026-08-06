@@ -1,0 +1,684 @@
+/**
+ * Acumatica Sync — shared admin styles
+ * File: admin/admin.css
+ *
+ * Scoped to .acm-wrap so nothing here leaks into the rest of wp-admin.
+ */
+
+.acm-wrap {
+	--acm-bg: #fff;
+	--acm-bg-sunken: #f6f7f7;
+	--acm-border: #dcdcde;
+	--acm-border-soft: #f0f0f1;
+	--acm-text: #1d2327;
+	--acm-muted: #646970;
+	--acm-accent: #2271b1;
+	--acm-ok: #007017;
+	--acm-ok-bg: #edfaef;
+	--acm-ok-border: #a7d7ae;
+	--acm-fail: #b32d2e;
+	--acm-fail-bg: #fcf0f1;
+	--acm-fail-border: #f0b4b5;
+	--acm-warn: #996800;
+	--acm-warn-bg: #fcf9e8;
+	--acm-radius: 8px;
+	--acm-shadow: 0 1px 2px rgba( 0, 0, 0, .05 );
+
+	max-width: 1440px;
+}
+
+/* ---------------------------------------------------------------- header */
+
+.acm-head {
+	display: flex;
+	flex-wrap: wrap;
+	align-items: center;
+	gap: 8px 16px;
+	margin: 8px 0 4px;
+}
+
+.acm-head h1 {
+	margin: 0;
+	padding: 0;
+	font-size: 23px;
+	line-height: 1.3;
+}
+
+.acm-head p {
+	margin: 0;
+	color: var(--acm-muted);
+	font-size: 13px;
+}
+
+.acm-head-actions {
+	margin-left: auto;
+	display: flex;
+	align-items: center;
+	gap: 8px;
+}
+
+/* Small status pill, e.g. "Token valid", "Sync off". */
+.acm-pill {
+	display: inline-flex;
+	align-items: center;
+	gap: 6px;
+	padding: 3px 10px;
+	border: 1px solid var(--acm-border);
+	border-radius: 999px;
+	background: var(--acm-bg);
+	font-size: 12px;
+	font-weight: 600;
+	line-height: 1.6;
+	white-space: nowrap;
+}
+
+.acm-pill::before {
+	content: "";
+	width: 8px;
+	height: 8px;
+	border-radius: 50%;
+	background: currentColor;
+	flex: 0 0 auto;
+}
+
+.acm-pill-ok { color: var(--acm-ok); background: var(--acm-ok-bg); border-color: var(--acm-ok-border); }
+.acm-pill-fail { color: var(--acm-fail); background: var(--acm-fail-bg); border-color: var(--acm-fail-border); }
+.acm-pill-warn { color: var(--acm-warn); background: var(--acm-warn-bg); border-color: #e3ce85; }
+.acm-pill-idle { color: var(--acm-muted); }
+
+/* -------------------------------------------------------------- sections */
+
+/* One scrolling page. Sections are separated by a rule and a heading, no card
+   chrome: on a settings form the borders were decoration around a form-table
+   that already reads as a group. */
+.acm-section {
+	max-width: 900px;
+	margin: 28px 0;
+	padding-top: 20px;
+	border-top: 1px solid var(--acm-border);
+}
+
+.acm-section:first-of-type {
+	border-top: 0;
+	padding-top: 0;
+}
+
+.acm-section > h2 {
+	margin: 0 0 2px;
+	padding: 0;
+	font-size: 16px;
+	line-height: 1.4;
+}
+
+.acm-section > h3 {
+	margin: 26px 0 2px;
+	font-size: 14px;
+}
+
+.acm-section-intro {
+	margin: 4px 0 14px;
+	max-width: 72ch;
+}
+
+.acm-section .form-table th {
+	width: 170px;
+	padding: 16px 20px 16px 0;
+	font-size: 13px;
+	font-weight: 600;
+}
+
+.acm-section .form-table .description {
+	max-width: 72ch;
+}
+
+/* Two number inputs reading as one sentence, rather than two labelled rows. */
+.acm-inline {
+	margin: 0;
+	line-height: 2.2;
+}
+
+/* Save button follows you down a long form. */
+.acm-savebar {
+	position: sticky;
+	bottom: 0;
+	z-index: 10;
+	margin-top: 28px;
+	padding: 12px 0;
+	background: var(--acm-bg-sunken);
+	border-top: 1px solid var(--acm-border);
+	box-shadow: 0 -1px 2px rgba( 0, 0, 0, .04 );
+}
+
+/* ---------------------------------------------------------- secret input */
+
+.acm-secret {
+	display: flex;
+	align-items: center;
+	gap: 6px;
+	max-width: 100%;
+}
+
+.acm-secret input {
+	font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+	font-size: 12px;
+}
+
+.acm-reveal {
+	flex: 0 0 auto;
+	line-height: 1;
+	padding: 4px 6px;
+}
+
+.acm-reveal .dashicons {
+	width: 18px;
+	height: 18px;
+	font-size: 18px;
+}
+
+/* Read-only token blob. */
+.acm-mono {
+	display: block;
+	padding: 8px 10px;
+	border: 1px solid var(--acm-border);
+	border-radius: 6px;
+	background: var(--acm-bg-sunken);
+	font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+	font-size: 11px;
+	line-height: 1.6;
+	word-break: break-all;
+	color: var(--acm-muted);
+}
+
+/* ---------------------------------------------------------- data tables */
+
+.acm-table {
+	width: 100%;
+	border-collapse: collapse;
+	font-size: 13px;
+}
+
+.acm-table th,
+.acm-table td {
+	padding: 9px 12px;
+	text-align: left;
+	border-bottom: 1px solid var(--acm-border-soft);
+}
+
+.acm-table th {
+	background: var(--acm-bg-sunken);
+	font-weight: 600;
+	color: var(--acm-muted);
+	font-size: 11px;
+	text-transform: uppercase;
+	letter-spacing: .04em;
+}
+
+.acm-table tr:last-child td {
+	border-bottom: 0;
+}
+
+.acm-table tr.is-current td {
+	background: #f0f6fc;
+	font-weight: 600;
+}
+
+.acm-table code {
+	background: var(--acm-bg-sunken);
+	padding: 1px 6px;
+	border-radius: 4px;
+	font-size: 12px;
+}
+
+/* ----------------------------------------------------------------- stats */
+
+.acm-stats {
+	display: grid;
+	grid-template-columns: repeat( auto-fit, minmax( 150px, 1fr ) );
+	gap: 12px;
+	margin: 18px 0;
+	max-width: 780px;
+}
+
+.acm-stat {
+	display: block;
+	position: relative;
+	padding: 14px 16px 14px 18px;
+	background: var(--acm-bg);
+	border: 1px solid var(--acm-border);
+	border-radius: var(--acm-radius);
+	box-shadow: var(--acm-shadow);
+	text-decoration: none;
+	color: inherit;
+	transition: border-color .12s ease, transform .12s ease;
+}
+
+.acm-stat::before {
+	content: "";
+	position: absolute;
+	inset: 8px auto 8px 0;
+	width: 3px;
+	border-radius: 0 3px 3px 0;
+	background: var(--acm-border);
+}
+
+.acm-stat:hover,
+.acm-stat:focus {
+	border-color: var(--acm-accent);
+	transform: translateY( -1px );
+	color: inherit;
+	box-shadow: 0 2px 6px rgba( 0, 0, 0, .08 );
+}
+
+.acm-stat b {
+	display: block;
+	font-size: 26px;
+	font-weight: 600;
+	line-height: 1.15;
+	font-variant-numeric: tabular-nums;
+}
+
+.acm-stat span {
+	display: block;
+	margin-top: 2px;
+	font-size: 12px;
+	color: var(--acm-muted);
+}
+
+.acm-stat.is-active {
+	border-color: var(--acm-accent);
+	box-shadow: 0 0 0 1px var(--acm-accent);
+}
+
+.acm-stat-ok b { color: var(--acm-ok); }
+.acm-stat-ok::before { background: var(--acm-ok); }
+.acm-stat-fail b { color: var(--acm-fail); }
+.acm-stat-fail::before { background: var(--acm-fail); }
+.acm-stat-today::before { background: var(--acm-accent); }
+
+/* --------------------------------------------------------------- toolbar */
+
+.acm-toolbar {
+	position: sticky;
+	top: var( --wp-admin--admin-bar--height, 32px );
+	z-index: 20;
+	display: flex;
+	flex-wrap: wrap;
+	align-items: center;
+	gap: 8px;
+	padding: 10px 12px;
+	margin-bottom: 16px;
+	background: var(--acm-bg);
+	border: 1px solid var(--acm-border);
+	border-radius: var(--acm-radius);
+	box-shadow: var(--acm-shadow);
+}
+
+.acm-toolbar form {
+	display: flex;
+	flex-wrap: wrap;
+	align-items: center;
+	gap: 8px;
+}
+
+.acm-toolbar input[type="search"] {
+	min-width: 220px;
+}
+
+.acm-toolbar select,
+.acm-toolbar input[type="date"],
+.acm-toolbar input[type="search"] {
+	height: 30px;
+	font-size: 13px;
+}
+
+.acm-toolbar .acm-toolbar-end {
+	margin-left: auto;
+	display: flex;
+	align-items: center;
+	gap: 8px;
+}
+
+.acm-field-label {
+	font-size: 12px;
+	color: var(--acm-muted);
+	white-space: nowrap;
+}
+
+.acm-danger,
+.acm-danger:hover {
+	color: var(--acm-fail);
+	border-color: #d9a3a4;
+}
+
+.acm-result-line {
+	margin: -6px 0 14px;
+	font-size: 13px;
+	color: var(--acm-muted);
+}
+
+/* ------------------------------------------------------------------ logs */
+
+.acm-logs {
+	display: flex;
+	flex-direction: column;
+	gap: 6px;
+}
+
+.acm-log {
+	background: var(--acm-bg);
+	border: 1px solid var(--acm-border);
+	border-radius: var(--acm-radius);
+	box-shadow: var(--acm-shadow);
+}
+
+.acm-log > summary {
+	display: grid;
+	grid-template-columns: 54px minmax( 150px, 1.6fr ) 1fr 76px 80px minmax( 130px, auto ) 18px;
+	align-items: center;
+	gap: 12px;
+	padding: 11px 14px;
+	cursor: pointer;
+	border-radius: var(--acm-radius);
+	list-style: none;
+	font-size: 13px;
+}
+
+.acm-log > summary::-webkit-details-marker {
+	display: none;
+}
+
+.acm-log > summary:hover {
+	background: var(--acm-bg-sunken);
+}
+
+/* Expand affordance, since the default marker is hidden. */
+.acm-log > summary::after {
+	content: "\f347";
+	font-family: dashicons;
+	font-size: 18px;
+	line-height: 1;
+	color: var(--acm-muted);
+	transition: transform .15s ease;
+}
+
+.acm-log[open] > summary::after {
+	transform: rotate( 180deg );
+}
+
+.acm-log[open] > summary {
+	border-radius: var(--acm-radius) var(--acm-radius) 0 0;
+	border-bottom: 1px solid var(--acm-border-soft);
+}
+
+.acm-log-ok { border-left: 3px solid var(--acm-ok); }
+.acm-log-fail { border-left: 3px solid var(--acm-fail); }
+.acm-log-skip { border-left: 3px solid #a7aaad; }
+
+.acm-log-type {
+	font-weight: 600;
+	overflow: hidden;
+	text-overflow: ellipsis;
+	white-space: nowrap;
+}
+
+.acm-log-col {
+	color: var(--acm-muted);
+	overflow: hidden;
+	text-overflow: ellipsis;
+	white-space: nowrap;
+	font-variant-numeric: tabular-nums;
+}
+
+.acm-log-col a {
+	text-decoration: none;
+}
+
+.acm-log-time {
+	text-align: right;
+}
+
+.acm-badge {
+	display: inline-block;
+	min-width: 46px;
+	padding: 2px 0;
+	border-radius: 4px;
+	font-size: 10px;
+	font-weight: 700;
+	letter-spacing: .06em;
+	text-align: center;
+	text-transform: uppercase;
+}
+
+.acm-badge-ok { background: #d4edda; color: #14562a; }
+.acm-badge-fail { background: #f8d7da; color: #721c24; }
+.acm-badge-skip { background: #e2e3e5; color: #41464b; }
+
+.acm-log-body {
+	padding: 14px;
+}
+
+.acm-log-error {
+	display: flex;
+	gap: 8px;
+	align-items: flex-start;
+	padding: 10px 12px;
+	margin-bottom: 12px;
+	border: 1px solid var(--acm-fail-border);
+	border-radius: 6px;
+	background: var(--acm-fail-bg);
+	color: #6d1f20;
+	font-size: 13px;
+	line-height: 1.5;
+	word-break: break-word;
+}
+
+.acm-log-error .dashicons {
+	color: var(--acm-fail);
+	flex: 0 0 auto;
+}
+
+.acm-panes {
+	display: grid;
+	grid-template-columns: repeat( auto-fit, minmax( 320px, 1fr ) );
+	gap: 12px;
+}
+
+.acm-pane {
+	border: 1px solid var(--acm-border);
+	border-radius: 6px;
+	overflow: hidden;
+	background: var(--acm-bg-sunken);
+}
+
+.acm-pane-head {
+	display: flex;
+	align-items: center;
+	gap: 8px;
+	padding: 6px 8px 6px 12px;
+	background: #eef0f1;
+	border-bottom: 1px solid var(--acm-border);
+	font-size: 11px;
+	font-weight: 700;
+	text-transform: uppercase;
+	letter-spacing: .05em;
+	color: var(--acm-muted);
+}
+
+.acm-copy {
+	margin-left: auto;
+	padding: 2px 8px;
+	font-size: 11px;
+	line-height: 1.8;
+	height: auto;
+	min-height: 0;
+}
+
+.acm-pane pre {
+	margin: 0;
+	padding: 12px;
+	max-height: 380px;
+	overflow: auto;
+	font-size: 12px;
+	line-height: 1.55;
+	white-space: pre-wrap;
+	word-break: break-word;
+	tab-size: 2;
+}
+
+.acm-log-meta {
+	display: flex;
+	flex-wrap: wrap;
+	gap: 8px 18px;
+	margin-top: 12px;
+	padding-top: 12px;
+	border-top: 1px solid var(--acm-border-soft);
+	font-size: 12px;
+	color: var(--acm-muted);
+	align-items: center;
+}
+
+.acm-log-meta form {
+	margin-left: auto;
+}
+
+/* ------------------------------------------------------------ empty state */
+
+.acm-empty {
+	padding: 48px 24px;
+	text-align: center;
+	background: var(--acm-bg);
+	border: 1px dashed var(--acm-border);
+	border-radius: var(--acm-radius);
+}
+
+.acm-empty .dashicons {
+	width: 36px;
+	height: 36px;
+	font-size: 36px;
+	color: #c3c4c7;
+}
+
+.acm-empty h2 {
+	margin: 10px 0 4px;
+	font-size: 16px;
+}
+
+.acm-empty p {
+	margin: 0;
+	color: var(--acm-muted);
+}
+
+/* ------------------------------------------------------------ small screens */
+
+@media screen and ( max-width: 782px ) {
+	.acm-toolbar {
+		top: var( --wp-admin--admin-bar--height, 46px );
+	}
+
+	.acm-log > summary {
+		grid-template-columns: 54px 1fr;
+		row-gap: 6px;
+	}
+
+	.acm-log > summary::after {
+		display: none;
+	}
+
+	.acm-log-time {
+		text-align: left;
+	}
+
+	.acm-section .form-table th {
+		width: auto;
+		padding-right: 0;
+	}
+
+	.acm-method-head {
+		flex-wrap: wrap;
+	}
+}
+
+/* ------------------------------------------------ payment method mapping */
+
+/* Was a seven-column table that side-scrolled at any window size. One block
+   per method wraps instead, so every field stays on screen. */
+
+.acm-methods {
+	display: flex;
+	flex-direction: column;
+	gap: 12px;
+}
+
+.acm-method {
+	padding: 12px 16px 16px;
+	background: var(--acm-bg);
+	border: 1px solid var(--acm-border);
+	border-radius: var(--acm-radius);
+}
+
+.acm-method-head {
+	display: flex;
+	align-items: flex-end;
+	gap: 12px;
+	padding-bottom: 12px;
+	margin-bottom: 14px;
+	border-bottom: 1px solid var(--acm-border-soft);
+}
+
+.acm-method-head .acm-remove-method {
+	margin-left: auto;
+	color: var(--acm-fail);
+}
+
+.acm-method-fields {
+	display: grid;
+	grid-template-columns: repeat( auto-fit, minmax( 190px, 1fr ) );
+	gap: 12px 16px;
+}
+
+.acm-field {
+	display: flex;
+	flex-direction: column;
+	gap: 3px;
+	min-width: 0;
+}
+
+.acm-field > span {
+	font-size: 12px;
+	font-weight: 600;
+	color: var(--acm-muted);
+}
+
+.acm-field input {
+	width: 100%;
+	min-width: 0;
+	font-size: 13px;
+}
+
+/* Placeholders here carry the inherited value, so they have to stay readable
+   rather than fade into the border colour. */
+.acm-field input::placeholder {
+	color: #8c8f94;
+	opacity: 1;
+	font-style: italic;
+}
+
+.acm-field-slug {
+	flex: 0 1 260px;
+}
+
+.acm-field-slug input {
+	font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+}
+
+.acm-methods-empty {
+	color: var(--acm-muted);
+	font-style: italic;
+}
+
+.acm-add-method .dashicons {
+	font-size: 16px;
+	width: 16px;
+	height: 16px;
+	line-height: 1.6;
+}
