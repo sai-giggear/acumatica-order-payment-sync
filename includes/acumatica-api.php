@@ -1,6 +1,6 @@
 <?php
 /**
- * Acumatica API helper functions
+ * Acumatica REST calls and OAuth2 token handling
  * File: includes/acumatica-api.php
  */
 
@@ -11,9 +11,9 @@ if ( ! defined( 'ABSPATH' ) ) {
 /**
  * Endpoint path between the base URL and the resource name.
  *
- * Format is entity/{endpoint}/{version}. Sites using a customised or extended
- * endpoint have their own name here instead of Default2, and the version moves
- * with each Acumatica upgrade, so both are configurable.
+ * Format is entity/{endpoint}/{version}. A site publishing an extended endpoint
+ * has its own name here instead of Default2, and the version moves with each
+ * Acumatica upgrade, so both are configurable.
  */
 function acumatica_endpoint_path(): string {
     $default = 'entity/Default2/23.200.001';
@@ -91,8 +91,7 @@ function acumatica_api_request( string $endpoint, array $data, string $method = 
     }
 
     $success = $http_code >= 200 && $http_code < 300;
-    
-    // Build error message for failed requests
+
     $error = null;
     if ( ! $success ) {
         if ( is_array( $body_data ) ) {
@@ -139,9 +138,8 @@ function acumatica_send_salesorder_to_api( array $data ): array {
 }
 
 /**
- * Attempt to get a token using the refresh token.
- * Returns the token data array on success, or false on failure.
- * Clears the stored refresh token if it is rejected.
+ * Token via the refresh grant. Returns the token data, or false on failure
+ * after clearing the stored refresh token if the server rejected it.
  *
  * @param string $token_url
  * @param string $client_id
@@ -187,8 +185,8 @@ function acumatica_try_refresh_token( string $token_url, string $client_id, stri
 }
 
 /**
- * Attempt to get a token using username/password (ROPC flow).
- * Returns the token data array on success, or WP_Error on failure.
+ * Token via the password grant (ROPC), used when there is no usable refresh
+ * token.
  *
  * @param string $token_url
  * @param string $client_id
@@ -253,12 +251,7 @@ function acumatica_store_token_data( array $data ): void {
 /**
  * Retrieve or refresh the Acumatica OAuth2 access token.
  *
- * Flow:
- * 1. Return cached access token if still valid.
- * 2. Try refresh token if one is stored.
- * 3. If refresh token is missing or rejected, fall back to password grant.
- *
- * @param bool $force_refresh Force token refresh regardless of expiry.
+ * @param bool $force_refresh Fetch a new token even if the cached one is live.
  * @return string|WP_Error
  */
 function acumatica_get_token( bool $force_refresh = false ): string|WP_Error {

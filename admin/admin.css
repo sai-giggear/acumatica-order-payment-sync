@@ -1,5 +1,5 @@
 /**
- * Acumatica Sync — shared admin styles
+ * Acumatica Sync admin styles
  * File: admin/admin.css
  *
  * Scoped to .acm-wrap so nothing here leaks into the rest of wp-admin.
@@ -27,7 +27,7 @@
 	max-width: 1440px;
 }
 
-/* ---------------------------------------------------------------- header */
+/* Header */
 
 .acm-head {
 	display: flex;
@@ -86,11 +86,10 @@
 .acm-pill-warn { color: var(--acm-warn); background: var(--acm-warn-bg); border-color: #e3ce85; }
 .acm-pill-idle { color: var(--acm-muted); }
 
-/* -------------------------------------------------------------- sections */
+/* Sections */
 
-/* One scrolling page. Sections are separated by a rule and a heading, no card
-   chrome: on a settings form the borders were decoration around a form-table
-   that already reads as a group. */
+/* One scrolling page, sections divided by a rule and a heading. No card chrome:
+   a form-table already reads as a group without a border around it. */
 .acm-section {
 	max-width: 900px;
 	margin: 28px 0;
@@ -149,7 +148,7 @@
 	box-shadow: 0 -1px 2px rgba( 0, 0, 0, .04 );
 }
 
-/* ---------------------------------------------------------- secret input */
+/* Secret input */
 
 .acm-secret {
 	display: flex;
@@ -189,7 +188,7 @@
 	color: var(--acm-muted);
 }
 
-/* ---------------------------------------------------------- data tables */
+/* Data tables */
 
 .acm-table {
 	width: 100%;
@@ -229,7 +228,7 @@
 	font-size: 12px;
 }
 
-/* ----------------------------------------------------------------- stats */
+/* Stat tiles */
 
 .acm-stats {
 	display: grid;
@@ -295,7 +294,7 @@
 .acm-stat-fail::before { background: var(--acm-fail); }
 .acm-stat-today::before { background: var(--acm-accent); }
 
-/* --------------------------------------------------------------- toolbar */
+/* Toolbar */
 
 .acm-toolbar {
 	position: sticky;
@@ -356,7 +355,7 @@
 	color: var(--acm-muted);
 }
 
-/* ------------------------------------------------------------------ logs */
+/* Log list */
 
 .acm-logs {
 	display: flex;
@@ -541,7 +540,7 @@
 	margin-left: auto;
 }
 
-/* ------------------------------------------------------------ empty state */
+/* Empty state */
 
 .acm-empty {
 	padding: 48px 24px;
@@ -568,7 +567,7 @@
 	color: var(--acm-muted);
 }
 
-/* ------------------------------------------------------------ small screens */
+/* Small screens */
 
 @media screen and ( max-width: 782px ) {
 	.acm-toolbar {
@@ -598,10 +597,10 @@
 	}
 }
 
-/* ------------------------------------------------ payment method mapping */
+/* Payment method mapping */
 
-/* Was a seven-column table that side-scrolled at any window size. One block
-   per method wraps instead, so every field stays on screen. */
+/* One wrapping block per method. Seven fields in a row side-scrolled at every
+   window size. */
 
 .acm-methods {
 	display: flex;
@@ -656,7 +655,7 @@
 }
 
 /* Placeholders here carry the inherited value, so they have to stay readable
-   rather than fade into the border colour. */
+   rather than fade towards the border colour. */
 .acm-field input::placeholder {
 	color: #8c8f94;
 	opacity: 1;

@@ -1,6 +1,6 @@
 <?php
 /**
- * Acumatica Sync — Logging system
+ * Acumatica Sync logging and the admin log screen
  * File: includes/logger.php
  */
 
@@ -9,7 +9,7 @@ if ( ! defined( 'ABSPATH' ) ) {
 }
 
 /**
- * Record a sync log entry
+ * Write one log row.
  *
  * @param string      $type        Log type (e.g., 'Order Sync Success', 'Payment Sync Failed')
  * @param int|null    $order_id    WooCommerce order ID
@@ -30,7 +30,6 @@ function acumatica_log(
 ): void {
     global $wpdb;
 
-    // Get order details if available
     $order_number = null;
     $order_status = null;
     
@@ -107,7 +106,7 @@ function acumatica_resend_actions(): array {
 }
 
 /**
- * Retrieve log entries with filters
+ * Log entries matching the admin screen's filters.
  *
  * @param int   $page     Page number
  * @param int   $per_page Items per page
@@ -182,17 +181,11 @@ function acumatica_get_logs( int $page = 1, int $per_page = 25, array $filters =
     return [ $rows, $total ];
 }
 
-/**
- * Clear all logs
- */
 function acumatica_clear_logs(): void {
     global $wpdb;
     $wpdb->query( "TRUNCATE TABLE {$wpdb->prefix}acumatica_logs" );
 }
 
-/**
- * Get log statistics
- */
 function acumatica_get_log_stats(): array {
     global $wpdb;
     $table = $wpdb->prefix . 'acumatica_logs';
@@ -286,9 +279,6 @@ function acumatica_handle_logs_actions(): void {
     }
 }
 
-/**
- * Render the logs admin page
- */
 function acumatica_logs_page(): void {
     if ( ! current_user_can( 'manage_woocommerce' ) ) {
         wp_die( 'You do not have permission to view this page.' );
@@ -325,7 +315,7 @@ function acumatica_logs_page(): void {
         <div class="acm-head">
             <div>
                 <h1>Acumatica Sync</h1>
-                <p>Every order and payment request sent to Acumatica, with the raw payloads.</p>
+                <p>Order and payment requests sent to Acumatica, with the raw payloads. Kept 30 days.</p>
             </div>
             <div class="acm-head-actions">
                 <?php if ( ! Acumatica_Config::sync_enabled() ) : ?>
@@ -446,9 +436,6 @@ function acumatica_logs_page(): void {
     <?php
 }
 
-/**
- * Render pagination links below the log list
- */
 function acumatica_render_log_pagination( int $paged, int $per_page, int $total ): void {
     $total_pages = (int) ceil( $total / max( 1, $per_page ) );
 
@@ -491,9 +478,6 @@ function acumatica_order_edit_url( int $order_id ): string {
     return admin_url( 'post.php?post=' . $order_id . '&action=edit' );
 }
 
-/**
- * Render a single log entry
- */
 function acumatica_render_log_entry( array $log ): void {
     $http_code = isset( $log['http_code'] ) ? (int) $log['http_code'] : null;
     $success   = $http_code && $http_code >= 200 && $http_code < 300;
@@ -592,10 +576,10 @@ function acumatica_render_log_entry( array $log ): void {
 /**
  * Pretty-print a stored JSON column for display, with truncation.
  *
- * Takes the raw column rather than a decoded value: json_validate() (PHP 8.3)
- * separates a corrupt row from a payload that genuinely was null, which both
- * used to render as the bare string "null" and read as the same thing on the
- * one screen where you go to find out why a sync failed.
+ * Takes the raw column rather than a decoded value, so json_validate() (PHP
+ * 8.3) can tell a corrupt row apart from a payload that genuinely was null.
+ * Both render as "null" once decoded, and this is the screen you open to find
+ * out why a sync failed.
  */
 function acumatica_format_json( ?string $stored, int $limit = 50000 ): string {
     $stored = trim( (string) $stored );

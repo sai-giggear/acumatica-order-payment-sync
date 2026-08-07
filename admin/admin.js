@@ -1,13 +1,11 @@
 /**
- * Acumatica Sync — admin UI behaviour
+ * Acumatica Sync admin UI behaviour
  * File: admin/admin.js
- *
- * Three small jobs: payment-method rows, secret reveal, copy-to-clipboard.
  */
 ( function () {
 	'use strict';
 
-	/* --------------------------------------------- payment method blocks */
+	/* Payment method blocks */
 
 	function initMethods() {
 		var add = document.querySelector( '.acm-add-method' );
@@ -27,9 +25,9 @@
 		}
 
 		add.addEventListener( 'click', function () {
-			// Indices only have to be unique within the post, since the
-			// sanitiser re-packs the rows into a list. Never reused, so
-			// removing a block cannot collide with a later add.
+			// Indices only have to be unique within the post: the sanitiser
+			// re-packs the rows into a list. Never reused, so removing a block
+			// cannot collide with a later add.
 			var index = parseInt( add.dataset.nextIndex, 10 ) || 0;
 			add.dataset.nextIndex = index + 1;
 
@@ -67,7 +65,7 @@
 		} );
 	}
 
-	/* ---------------------------------------------------- secret reveal */
+	/* Secret reveal */
 
 	function initReveal() {
 		document.querySelectorAll( '.acm-reveal' ).forEach( function ( button ) {
@@ -87,7 +85,7 @@
 		} );
 	}
 
-	/* ------------------------------------------------------------- copy */
+	/* Copy to clipboard */
 
 	function write( text ) {
 		if ( navigator.clipboard && window.isSecureContext ) {
@@ -133,7 +131,7 @@
 		} );
 	}
 
-	/* ------------------------------------------------------------- boot */
+	/* Boot */
 
 	function init() {
 		initMethods();

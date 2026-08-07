@@ -24,8 +24,7 @@ Everything lives on one screen, **Acumatica Sync → Settings**.
   inherited: a method with no processor fee would otherwise wait out the full
   retry schedule for a fee that never arrives.
 
-None of this is in the source. The host map, customer IDs and GL accounts used
-to be hardcoded, which put one company's chart of accounts in the plugin.
+None of it is hardcoded.
 
 ## Updates
 

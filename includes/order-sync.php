@@ -8,11 +8,10 @@ if ( ! defined( 'ABSPATH' ) ) {
     exit;
 }
 
-// Hook into paid order status
 add_action( 'woocommerce_order_status_processing', 'acumatica_send_order_request', 10, 1 );
 
 /**
- * Build Sales Order payload from WooCommerce order
+ * Sales Order payload for one WooCommerce order.
  */
 function acumatica_build_order_payload( WC_Order $order, array $site_config, array $payment_config ): array {
     $billing_name = trim( $order->get_billing_first_name() . ' ' . $order->get_billing_last_name() );
@@ -75,7 +74,6 @@ function acumatica_build_order_payload( WC_Order $order, array $site_config, arr
         ],
     ];
 
-    // Add line items
     foreach ( $order->get_items() as $item ) {
         $line = acumatica_build_line_item( $item );
         if ( $line ) {
@@ -83,7 +81,6 @@ function acumatica_build_order_payload( WC_Order $order, array $site_config, arr
         }
     }
 
-    // Handle local pickup
     $shipping_method = $order->get_shipping_method();
     if ( Acumatica_Config::is_local_pickup( $shipping_method ) ) {
         $payload['ShipVia'] = [ 'value' => 'LOCAL PICK UP' ];
@@ -93,7 +90,7 @@ function acumatica_build_order_payload( WC_Order $order, array $site_config, arr
 }
 
 /**
- * Build a single line item for the order payload
+ * One Details line, or null for a line with nothing to send.
  */
 function acumatica_build_line_item( WC_Order_Item_Product $item ): ?array {
     $product = $item->get_product();
@@ -116,7 +113,7 @@ function acumatica_build_line_item( WC_Order_Item_Product $item ): ?array {
         'ManualPrice' => [ 'value' => true ],
     ];
 
-    // Add discount if applicable
+    // Float subtraction, so compare against a cent rather than zero.
     if ( $discount > 0.0001 ) {
         $line['ManualDiscount'] = [ 'value' => true ];
         $line['DiscountAmount'] = [ 'value' => $discount ];
@@ -153,7 +150,7 @@ function acumatica_missing_skus( WC_Order $order ): array {
 }
 
 /**
- * Send order to Acumatica
+ * Build and send the sales order, then log the result.
  *
  * @param int|WC_Order $order_or_id Order ID or order object
  * @param bool         $force       Bypass the duplicate-send guard (manual resend)
@@ -199,20 +196,16 @@ function acumatica_send_order_request( $order_or_id, bool $force = false ): void
         return;
     }
 
-    // Get configurations
     $site_config    = Acumatica_Config::get_site_config();
     $payment_config = Acumatica_Config::get_payment_config( $order->get_payment_method() );
 
-    // Build and send payload
     $payload = acumatica_build_order_payload( $order, $site_config, $payment_config );
     $result  = acumatica_send_salesorder_to_api( $payload );
 
-    // Update order meta
     $success = $result['success'] ?? false;
     $order->update_meta_data( 'acumatica_order_sent', $success ? 'true' : 'failed' );
     $order->save_meta_data();
-    
-    // Log the result
+
     acumatica_log(
         $success ? 'Order Sync Success' : 'Order Sync Failed',
         $order_id,
@@ -224,7 +217,7 @@ function acumatica_send_order_request( $order_or_id, bool $force = false ): void
     );
 }
 
-// Register manual order action
+// Order actions dropdown on the order edit screen.
 add_filter( 'woocommerce_order_actions', function( array $actions ): array {
     $actions['resend_acumatica_order'] = 'Resend Sales Order to Acumatica';
     return $actions;
@@ -232,7 +225,7 @@ add_filter( 'woocommerce_order_actions', function( array $actions ): array {
 
 add_action( 'woocommerce_order_action_resend_acumatica_order', 'acumatica_resend_order_now' );
 
-// Handle resend from logs page
+// Resend button on the logs screen.
 add_action( 'acumatica_resend_order', 'acumatica_resend_order_now' );
 
 /**

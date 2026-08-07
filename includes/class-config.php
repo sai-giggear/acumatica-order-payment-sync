@@ -3,9 +3,9 @@
  * Central configuration for Acumatica Sync
  * File: includes/class-config.php
  *
- * Everything here used to be hardcoded: the host mapping, the customer IDs and
- * the GL accounts. That put one company's chart of accounts in the plugin
- * source, so it all moved to options and is entered on the Mapping tab.
+ * Host mapping, customer IDs and GL accounts all live in options and are
+ * entered on the settings screen. Hardcoding them put one company's chart of
+ * accounts in the plugin source.
  */
 
 if ( ! defined( 'ABSPATH' ) ) {
@@ -15,10 +15,11 @@ if ( ! defined( 'ABSPATH' ) ) {
 class Acumatica_Config {
 
     /**
-     * Shape of one payment-method row, and the labels the Mapping tab renders.
+     * Shape of one payment-method row, and the labels the settings screen
+     * renders for it.
      *
-     * The settings screen, the sanitiser and the fallback row all read the
-     * shape from here, so adding a field is a one-line change.
+     * The screen, the sanitiser and the fallback row all read the shape from
+     * here, so adding a field is a one-line change.
      */
     public const array PAYMENT_FIELDS = [
         'wc_method'        => 'WooCommerce method',
@@ -34,10 +35,10 @@ class Acumatica_Config {
      * The host this install is authorised to sync as.
      *
      * Stored rather than derived. A cloned site (staging.example.com, a
-     * migration copy, a dev box) carries the live credentials AND the live
+     * migration copy, a dev box) carries the live credentials and the live
      * options in its database, so comparing the stored host against the running
-     * one is the only thing that tells the two apart. Derive it and a clone
-     * looks perfectly configured and posts test orders into production.
+     * one is what tells the two apart. Derive it and a clone looks configured
+     * and posts test orders into production.
      */
     public static function authorised_host(): string {
         return strtolower( trim( (string) get_option( 'acumatica_site_host', '' ) ) );
@@ -87,7 +88,7 @@ class Acumatica_Config {
         if ( '' === self::authorised_host() ) {
             return sprintf(
                 'No site mapping yet. Set the authorised host, order type and customer ID '
-                . 'on the Mapping tab. This site is "%s".',
+                . 'in Acumatica Sync settings. This site is "%s".',
                 $host
             );
         }
@@ -102,14 +103,14 @@ class Acumatica_Config {
         }
 
         if ( ! self::is_configured() ) {
-            return 'Order type and customer ID are both required on the Mapping tab.';
+            return 'Order type and customer ID are both required in Acumatica Sync settings.';
         }
 
         return '';
     }
 
     /**
-     * Get site configuration for the current site.
+     * Values sent on every order from this site.
      */
     public static function get_site_config( ?string $host = null ): array {
         $host = (string) ( $host ?: parse_url( home_url(), PHP_URL_HOST ) );
@@ -165,7 +166,7 @@ class Acumatica_Config {
     }
 
     /**
-     * Get payment configuration for a WooCommerce payment method.
+     * Resolved payment settings for one WooCommerce payment method.
      */
     public static function get_payment_config( string $wc_method ): array {
         $fallback = self::get_payment_fallback();
@@ -202,14 +203,14 @@ class Acumatica_Config {
     }
 
     /**
-     * Get just the Acumatica payment method name for a WC payment method
+     * Just the Acumatica payment method name for a WooCommerce method.
      */
     public static function get_acumatica_payment_method( string $wc_method ): string {
         return self::get_payment_config( $wc_method )['acumatica_method'];
     }
 
     /**
-     * Check if a shipping method indicates local pickup
+     * Does this shipping method mean the customer collects in person?
      */
     public static function is_local_pickup( string $shipping_method ): bool {
         $method_lower = strtolower( trim( $shipping_method ) );

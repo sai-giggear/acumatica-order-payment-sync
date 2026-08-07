@@ -20,9 +20,9 @@ function acumatica_secret_options(): array {
 /**
  * Keep the stored secret when the field is submitted blank.
  *
- * The form renders these fields empty so the credentials never appear in the
- * page source, which means every save posts an empty string unless the admin
- * actually typed a new value.
+ * The form renders these fields empty so credentials never appear in the page
+ * source. Every save therefore posts an empty string unless the admin typed a
+ * new value.
  *
  * ponytail: no way to blank a secret from the UI, since blank means "keep".
  * Rotating credentials is a write, not a delete, so this has not come up. If it
@@ -79,9 +79,6 @@ function acumatica_sanitize_host( mixed $value ): string {
     return sanitize_text_field( $host );
 }
 
-/**
- * Register settings
- */
 add_action( 'admin_init', function(): void {
     $text = [ 'sanitize_callback' => 'sanitize_text_field' ];
     $url  = [ 'sanitize_callback' => 'esc_url_raw' ];
@@ -251,10 +248,7 @@ function acumatica_payment_method_block( string $index, array $row, array $fallb
 }
 
 /**
- * Placeholder text showing what a blank cell will actually send.
- *
- * The inheritance rules used to be a paragraph of prose above the table. Same
- * rules, shown in the field that obeys them.
+ * Placeholder text showing what a blank field will actually send.
  */
 function acumatica_inherit_hint( string $key, array $fallback ): string {
     // The fee key is taken literally rather than inherited, so a method with no
@@ -310,9 +304,6 @@ function acumatica_handle_settings_actions(): void {
     }
 }
 
-/**
- * Render the settings page
- */
 function acumatica_sync_settings_page(): void {
     if ( ! current_user_can( 'manage_options' ) ) {
         wp_die( 'You do not have permission to view this page.' );
@@ -337,7 +328,7 @@ function acumatica_sync_settings_page(): void {
         <div class="acm-head">
             <div>
                 <h1>Acumatica Sync</h1>
-                <p>Connection, sync behaviour and site mapping for the WooCommerce → Acumatica bridge.</p>
+                <p>Connection, sync behaviour and site mapping.</p>
             </div>
             <div class="acm-head-actions">
                 <span class="acm-pill acm-pill-<?php echo esc_attr( $sync_on && ! $blocked ? 'ok' : 'idle' ); ?>">
@@ -364,7 +355,6 @@ function acumatica_sync_settings_page(): void {
         <form method="post" action="options.php" class="acm-form">
             <?php settings_fields( 'acumatica_sync_options' ); ?>
 
-            <!-- ------------------------------------------------ Connection -->
             <section class="acm-section">
                 <h2>Connection</h2>
                 <table class="form-table" role="presentation">
@@ -439,7 +429,6 @@ function acumatica_sync_settings_page(): void {
                 </table>
             </section>
 
-            <!-- ------------------------------------------------- This site -->
             <section class="acm-section">
                 <h2>This site</h2>
                 <table class="form-table" role="presentation">
@@ -452,9 +441,9 @@ function acumatica_sync_settings_page(): void {
                                 placeholder="<?php echo esc_attr( $current['host'] ); ?>">
                             <p class="description">
                                 This site is <code><?php echo esc_html( $current['host'] ); ?></code>.
-                                Syncing runs only while the two match. That is what stops a staging
-                                copy or a restored database, which carry these same settings, from
-                                posting test orders into Acumatica as real ones.
+                                Syncing runs only while the two match. A staging copy or a restored
+                                database carries these same settings, and the mismatch is what keeps
+                                it from posting test orders into Acumatica as real ones.
                             </p>
                         </td>
                     </tr>
@@ -492,7 +481,6 @@ function acumatica_sync_settings_page(): void {
                 </table>
             </section>
 
-            <!-- ------------------------------------------------------ Sync -->
             <section class="acm-section">
                 <h2>Sync behaviour</h2>
                 <table class="form-table" role="presentation">
@@ -541,12 +529,11 @@ function acumatica_sync_settings_page(): void {
                 </table>
             </section>
 
-            <!-- -------------------------------------------- Payment methods -->
             <section class="acm-section">
                 <h2>Payment methods</h2>
                 <p class="description acm-section-intro">
-                    One block per WooCommerce payment method. Leave a field blank to use the default
-                    below it, which is what each placeholder shows.
+                    One block per WooCommerce payment method. A blank field takes the default from
+                    the Defaults block below, and each placeholder shows what that will send.
                 </p>
 
                 <?php // Suggestions for the method field. Free text either way, so a
@@ -581,10 +568,10 @@ function acumatica_sync_settings_page(): void {
 
                 <h3>Defaults</h3>
                 <p class="description acm-section-intro">
-                    Used for any method with no block above, and for any blank field in one. Leaving
-                    the payment method blank sends the WooCommerce slug upper-cased, which Acumatica
-                    will reject if it does not recognise it. The fee meta key is never inherited: a
-                    method with no processor fee would otherwise sit waiting for one that never arrives.
+                    Used for any method with no block above, and for any blank field in one. A blank
+                    payment method sends the WooCommerce slug upper-cased, which Acumatica rejects
+                    unless it recognises it. The fee meta key is never inherited, so a method with
+                    no processor fee does not sit waiting for one that never arrives.
                 </p>
                 <div class="acm-method acm-method-fallback">
                     <div class="acm-method-fields">
@@ -602,7 +589,6 @@ function acumatica_sync_settings_page(): void {
                 </div>
             </section>
 
-            <!-- ---------------------------------------------------- Status -->
             <section class="acm-section">
                 <h2>Status</h2>
                 <table class="acm-table">

@@ -2,9 +2,9 @@
 /**
  * Self-check for the plugin's pure decision logic. Run: php test-resend-kind.php
  *
- * Covers the things that fail silently and expensively if they regress: resend
- * routing, the processor-fee wait, the API endpoint path, the admin log filters
- * and the keep-on-blank secret handling.
+ * Covers what fails silently and expensively if it regresses: resend routing,
+ * the processor-fee wait, the API endpoint path, the host gate, the admin log
+ * filters and the keep-on-blank secret handling.
  */
 
 define( 'ABSPATH', __DIR__ . '/' );
@@ -261,9 +261,9 @@ assert( '_stripe_fee' === Acumatica_Config::get_payment_config( 'stripe' )['fee_
 assert( 'ZIPMONEY' === Acumatica_Config::get_acumatica_payment_method( 'zipmoney' ) );
 assert( '99003' === Acumatica_Config::get_payment_config( 'zipmoney' )['cash_account'] );
 
-// --- payment table sanitising ---
-// The form always posts three blank spares; storing them would grow the option
-// on every save and shadow real rows.
+// --- payment map sanitising ---
+// A block added and left unfilled, and one the Remove button deleted, both post
+// as a row with no slug. Storing those grows the option on every save.
 $saved = acumatica_sanitize_payment_map( [
     [ 'wc_method' => ' stripe ', 'cash_account' => '99003' ],
     [ 'wc_method' => '', 'cash_account' => '99999' ],

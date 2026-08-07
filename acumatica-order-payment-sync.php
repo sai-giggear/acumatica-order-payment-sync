@@ -15,8 +15,7 @@ if ( ! defined( 'ABSPATH' ) ) {
     exit;
 }
 
-// Plugin constants. The version is read from the header above rather than
-// written twice, so a release is one edit.
+// Version is read from the header above, so a release is one edit.
 define( 'ACUMATICA_SYNC_VERSION', get_file_data( __FILE__, [ 'v' => 'Version' ] )['v'] );
 define( 'ACUMATICA_SYNC_PATH', plugin_dir_path( __FILE__ ) );
 define( 'ACUMATICA_SYNC_URL', plugin_dir_url( __FILE__ ) );
@@ -24,9 +23,9 @@ define( 'ACUMATICA_SYNC_URL', plugin_dir_url( __FILE__ ) );
 /**
  * Self-hosted updates from the public GitHub repo.
  *
- * Only loaded where WordPress actually looks for updates. The library is a few
- * dozen files and a storefront page view has no use for any of them. WP-CLI is
- * in the list because `wp plugin update` runs outside both admin and cron.
+ * Loaded only where WordPress looks for updates, since a storefront page view
+ * has no use for the library. WP-CLI is included because `wp plugin update`
+ * runs outside both admin and cron.
  */
 if ( is_admin() || wp_doing_cron() || ( defined( 'WP_CLI' ) && WP_CLI ) ) {
     require_once ACUMATICA_SYNC_PATH . 'vendor/plugin-update-checker/plugin-update-checker.php';
@@ -53,11 +52,7 @@ if ( is_admin() || wp_doing_cron() || ( defined( 'WP_CLI' ) && WP_CLI ) ) {
     );
 }
 
-/**
- * Initialize the plugin
- */
 function acumatica_sync_init(): void {
-    // Load dependencies in correct order
     require_once ACUMATICA_SYNC_PATH . 'includes/class-config.php';
     require_once ACUMATICA_SYNC_PATH . 'includes/acumatica-api.php';
     require_once ACUMATICA_SYNC_PATH . 'includes/logger.php';
@@ -70,11 +65,7 @@ function acumatica_sync_init(): void {
 }
 add_action( 'plugins_loaded', 'acumatica_sync_init' );
 
-/**
- * Register admin menus
- */
 add_action( 'admin_menu', function(): void {
-    // Main menu
     add_menu_page(
         'Acumatica Order & Payment Sync',
         'Acumatica Sync',
@@ -85,7 +76,7 @@ add_action( 'admin_menu', function(): void {
         58
     );
 
-    // Logs submenu (same as parent)
+    // Renames the auto-created first submenu item from "Acumatica Sync" to "Logs".
     add_submenu_page(
         'acumatica-sync',
         'Logs',
@@ -95,7 +86,6 @@ add_action( 'admin_menu', function(): void {
         'acumatica_logs_page'
     );
 
-    // Settings submenu
     add_submenu_page(
         'acumatica-sync',
         'Settings',
@@ -107,10 +97,16 @@ add_action( 'admin_menu', function(): void {
 } );
 
 /**
- * Load the admin CSS/JS on our two screens only.
+ * Admin CSS/JS, on this plugin's two screens only.
+ *
+ * Keyed off the hook suffix WordPress passes in, which is
+ * "toplevel_page_acumatica-sync" for the logs screen and
+ * "acumatica-sync_page_acumatica-sync-settings" for settings. That is what
+ * WordPress itself uses to identify a screen; reading it back out of $_GET
+ * meant trusting the query string to still be intact at enqueue time.
  */
-add_action( 'admin_enqueue_scripts', function(): void {
-    if ( ! str_starts_with( sanitize_key( $_GET['page'] ?? '' ), 'acumatica-sync' ) ) {
+add_action( 'admin_enqueue_scripts', function( $hook ): void {
+    if ( ! str_contains( (string) $hook, 'acumatica-sync' ) ) {
         return;
     }
 
@@ -130,12 +126,9 @@ add_action( 'admin_enqueue_scripts', function(): void {
     );
 } );
 
-/**
- * Plugin activation
- */
 register_activation_hook( __FILE__, function(): void {
     global $wpdb;
-    
+
     $table   = $wpdb->prefix . 'acumatica_logs';
     $charset = $wpdb->get_charset_collate();
 
@@ -164,25 +157,22 @@ register_activation_hook( __FILE__, function(): void {
 
     dbDelta( $sql );
 
-    // Schedule daily log purge
     if ( ! wp_next_scheduled( 'acumatica_logs_purge_event' ) ) {
         wp_schedule_event( time() + HOUR_IN_SECONDS, 'daily', 'acumatica_logs_purge_event' );
     }
 
-    // Store version for future migrations
     acumatica_sync_harden_option_storage();
+
+    // Recorded so the admin_init upgrade step below can tell it has already run.
     update_option( 'acumatica_sync_version', ACUMATICA_SYNC_VERSION, false );
 } );
 
-/**
- * Plugin deactivation
- */
 register_deactivation_hook( __FILE__, function(): void {
     wp_clear_scheduled_hook( 'acumatica_logs_purge_event' );
 } );
 
 /**
- * Daily log purge (older than 30 days)
+ * Daily purge of log rows older than 30 days.
  */
 add_action( 'acumatica_logs_purge_event', function(): void {
     global $wpdb;
@@ -199,10 +189,10 @@ add_action( 'acumatica_logs_purge_event', function(): void {
 /**
  * Options that should never be autoloaded.
  *
- * These are only read during a sync or on the settings screen, but autoloaded
- * options are pulled into memory on every request, including front-end page
- * views. That puts the Acumatica password, client secret and access tokens in
- * the alloptions cache site-wide for no benefit.
+ * Autoloaded options are pulled into memory on every request, front-end page
+ * views included. These are read during a sync or on the settings screen and
+ * nowhere else, so autoloading them puts the Acumatica password, client secret
+ * and access tokens in the site-wide alloptions cache for no benefit.
  *
  * @return string[]
  */
@@ -234,7 +224,7 @@ function acumatica_sync_harden_option_storage(): void {
 }
 
 /**
- * Run one-time upgrade steps when the stored version is behind the code.
+ * One-time upgrade steps, run when the stored version is behind the code.
  */
 add_action( 'admin_init', function(): void {
     if ( get_option( 'acumatica_sync_version' ) === ACUMATICA_SYNC_VERSION ) {
@@ -256,9 +246,6 @@ add_action( 'admin_init', function(): void {
     update_option( 'acumatica_sync_version', ACUMATICA_SYNC_VERSION, false );
 } );
 
-/**
- * Add settings link on plugins page
- */
 add_filter( 'plugin_action_links_' . plugin_basename( __FILE__ ), function( array $links ): array {
     $settings_link = '<a href="' . admin_url( 'admin.php?page=acumatica-sync-settings' ) . '">Settings</a>';
     array_unshift( $links, $settings_link );

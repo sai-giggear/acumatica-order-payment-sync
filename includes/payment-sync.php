@@ -79,9 +79,9 @@ function acumatica_schedule_payment_sync( $order_or_id, int $attempt = 0, bool $
 }
 
 /**
- * Should we wait for a processor fee to land instead of sending now?
+ * Wait for a processor fee to land, or send now?
  *
- * Pure decision logic, kept separate from the order read so it is testable.
+ * Pure decision logic, kept apart from the order read so it stays testable.
  *
  * @param string $fee_meta_key Configured fee meta key ('' if none for this method)
  * @param mixed  $fee_value    Raw meta value as read from the order
@@ -98,7 +98,7 @@ function acumatica_should_wait_for_fee( string $fee_meta_key, mixed $fee_value, 
 }
 
 /**
- * Build AR Payment payload from WooCommerce order
+ * AR Payment payload for one WooCommerce order.
  */
 function acumatica_build_payment_payload( WC_Order $order, array $site_config, array $payment_config ): array {
     $payload = [
@@ -117,7 +117,6 @@ function acumatica_build_payment_payload( WC_Order $order, array $site_config, a
         ],
     ];
 
-    // Add payment processor charges/fees if applicable
     $charges = acumatica_build_payment_charges( $order, $payment_config );
     if ( $charges ) {
         $payload['Charges'] = $charges;
@@ -127,10 +126,9 @@ function acumatica_build_payment_payload( WC_Order $order, array $site_config, a
 }
 
 /**
- * Build charges array for payment fees (Stripe fees, PayPal fees, etc.)
+ * Charges line for the processor fee, or null when there is none to post.
  */
 function acumatica_build_payment_charges( WC_Order $order, array $payment_config ): ?array {
-    // Check if fee tracking is configured for this payment method
     if ( empty( $payment_config['fee_meta_key'] ) ) {
         return null;
     }
@@ -160,7 +158,7 @@ function acumatica_build_payment_charges( WC_Order $order, array $payment_config
 }
 
 /**
- * Send payment to Acumatica
+ * Build and send the AR payment, then log the result.
  *
  * @param int|WC_Order $order_or_id Order ID or order object
  * @param int          $attempt     Fee re-check attempt number
@@ -190,7 +188,6 @@ function acumatica_send_payment_request( $order_or_id, int $attempt = 0, bool $f
         return;
     }
 
-    // Get configurations
     $site_config    = Acumatica_Config::get_site_config();
     $payment_config = Acumatica_Config::get_payment_config( $order->get_payment_method() );
 
@@ -209,16 +206,13 @@ function acumatica_send_payment_request( $order_or_id, int $attempt = 0, bool $f
         return;
     }
 
-    // Build and send payload
     $payload = acumatica_build_payment_payload( $order, $site_config, $payment_config );
     $result  = acumatica_send_to_api( $payload );
 
-    // Update order meta
     $success = $result['success'] ?? false;
     $order->update_meta_data( 'acumatica_payment_sent', $success ? 'true' : 'failed' );
     $order->save_meta_data();
-    
-    // Log the result
+
     acumatica_log(
         $success ? 'Payment Sync Success' : 'Payment Sync Failed',
         $order_id,
@@ -230,7 +224,7 @@ function acumatica_send_payment_request( $order_or_id, int $attempt = 0, bool $f
     );
 }
 
-// Register manual order action
+// Order actions dropdown on the order edit screen.
 add_filter( 'woocommerce_order_actions', function( array $actions ): array {
     $actions['resend_acumatica_payment'] = 'Resend Payment to Acumatica';
     return $actions;
@@ -238,7 +232,7 @@ add_filter( 'woocommerce_order_actions', function( array $actions ): array {
 
 add_action( 'woocommerce_order_action_resend_acumatica_payment', 'acumatica_resend_payment_now' );
 
-// Handle resend from logs page
+// Resend button on the logs screen.
 add_action( 'acumatica_resend_payment', 'acumatica_resend_payment_now' );
 
 /**
