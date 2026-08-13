@@ -22,6 +22,41 @@ function acumatica_endpoint_path(): string {
 }
 
 /**
+ * Field-level errors buried in a rejected record.
+ *
+ * Acumatica answers a rejected PUT with the whole record and one generic
+ * message, and puts the real reason in an "error" key beside the offending
+ * field: PaymentMethod "STRIPE AFT" not found, and so on. Reading the log row
+ * should not mean reading the whole payload back.
+ *
+ * @param array  $node  Decoded response, or part of one
+ * @param string $path  Field path built up through the recursion
+ * @return string[]
+ */
+function acumatica_field_errors( array $node, string $path = '' ): array {
+    $errors = [];
+
+    foreach ( $node as $key => $value ) {
+        // The top-level error is the generic message, already reported.
+        if ( 'error' === $key && '' !== $path ) {
+            if ( is_string( $value ) && '' !== trim( $value ) ) {
+                $errors[] = $path . ': ' . trim( $value );
+            }
+            continue;
+        }
+
+        if ( is_array( $value ) ) {
+            // List indices keep the parent's name: Details[0] and Details[1]
+            // both read as Details, and the field under them is what matters.
+            $child  = is_int( $key ) ? $path : ( '' === $path ? (string) $key : $path . '.' . $key );
+            $errors = array_merge( $errors, acumatica_field_errors( $value, $child ) );
+        }
+    }
+
+    return array_values( array_unique( $errors ) );
+}
+
+/**
  * Send a request to the Acumatica API
  *
  * @param string $endpoint  API endpoint (e.g., 'Payment', 'SalesOrder')
@@ -96,12 +131,20 @@ function acumatica_api_request( string $endpoint, array $data, string $method = 
         if ( is_array( $body_data ) ) {
             // Check nested innerException for detailed error
             $inner = $body_data['innerException'] ?? [];
-            $error = $inner['exceptionMessage'] 
-                ?? $body_data['exceptionMessage'] 
-                ?? $body_data['message'] 
+            $error = $inner['exceptionMessage']
+                ?? $body_data['exceptionMessage']
+                ?? $body_data['message']
                 ?? $body_data['Message']
                 ?? $body_data['error']
                 ?? 'API error (HTTP ' . $http_code . ')';
+
+            // The top-level message is generic ("raised at least one error").
+            // What actually went wrong sits next to the field that caused it.
+            $fields = acumatica_field_errors( $body_data );
+
+            if ( $fields ) {
+                $error .= ' Fields: ' . implode( '; ', $fields );
+            }
         } else {
             $error = $body ?: 'API error (HTTP ' . $http_code . ')';
         }

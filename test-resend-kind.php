@@ -375,6 +375,35 @@ assert( 'Slug, upper-cased' === acumatica_inherit_hint(
     Acumatica_Config::blank_payment_row()
 ) );
 
+// --- field errors in a rejected record ---
+// Real case: order ST-136003. Acumatica answered with the whole sales order and
+// one generic message, and the reason it actually failed sat on the field. That
+// detail is the difference between a log row you can act on and one that sends
+// you back to the raw payload.
+$rejected = [
+    'error'         => "Inserting  'Sales Order' record raised at least one error.",
+    'OrderNbr'      => [ 'value' => 'ST-136003' ],
+    'PaymentMethod' => [
+        'value' => 'STRIPE AFT',
+        'error' => "Payment Method 'STRIPE AFT' cannot be found in the system.",
+    ],
+    'Details' => [
+        [ 'InventoryID' => [ 'value' => 'CUSTOM-STENCIL' ], 'UnitCost' => [ 'value' => 0, 'error' => 'No cost.' ] ],
+    ],
+];
+
+$fields = acumatica_field_errors( $rejected );
+assert( 2 === count( $fields ) );
+assert( "PaymentMethod: Payment Method 'STRIPE AFT' cannot be found in the system." === $fields[0] );
+assert( 'Details.UnitCost: No cost.' === $fields[1] );
+
+// The top-level message is reported on its own, so repeating it here would put
+// it in the log row twice.
+assert( [] === acumatica_field_errors( [ 'error' => 'Generic.', 'OrderNbr' => [ 'value' => 'ST-1' ] ] ) );
+
+// A clean record has nothing to report, and an empty error string is not one.
+assert( [] === acumatica_field_errors( [ 'PaymentMethod' => [ 'value' => 'STRIPE', 'error' => '' ] ] ) );
+
 // --- settings migration ---
 // A 1.0 site keeps one option per field. The first read after the update folds
 // them into acumatica_settings; miss one and a working site comes back with a

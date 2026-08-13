@@ -131,12 +131,48 @@
 		} );
 	}
 
+	/* Settings section nav */
+
+	function initNav() {
+		var links = document.querySelectorAll( '.acm-nav a' );
+		var sections = document.querySelectorAll( '.acm-sections section[id]' );
+
+		if ( ! links.length || ! sections.length || ! window.IntersectionObserver ) {
+			return;
+		}
+
+		var byId = {};
+		links.forEach( function ( link ) {
+			byId[ link.getAttribute( 'href' ).slice( 1 ) ] = link;
+		} );
+
+		// Bottom margin keeps the highlight on the section you are reading
+		// rather than the one just entering at the foot of the window.
+		var observer = new IntersectionObserver( function ( entries ) {
+			entries.forEach( function ( entry ) {
+				if ( ! entry.isIntersecting || ! byId[ entry.target.id ] ) {
+					return;
+				}
+
+				links.forEach( function ( link ) {
+					link.classList.remove( 'is-current' );
+				} );
+				byId[ entry.target.id ].classList.add( 'is-current' );
+			} );
+		}, { rootMargin: '-90px 0px -65% 0px' } );
+
+		sections.forEach( function ( section ) {
+			observer.observe( section );
+		} );
+	}
+
 	/* Boot */
 
 	function init() {
 		initMethods();
 		initReveal();
 		initCopy();
+		initNav();
 	}
 
 	if ( document.readyState === 'loading' ) {

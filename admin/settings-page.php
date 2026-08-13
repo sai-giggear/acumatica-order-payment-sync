@@ -7,6 +7,10 @@
  * Acumatica_Config::save() sanitises in one pass. Field definitions live here
  * rather than in the config class: labels and help text are screen concerns,
  * and the dynamic ones read the current site to say what a blank will send.
+ *
+ * Layout is a sticky section nav beside cards, not wp-admin's form-table. The
+ * screen is long enough that jumping to Payment methods matters, and a card per
+ * group of fields reads better than one table of twenty rows.
  */
 
 if ( ! defined( 'ABSPATH' ) ) {
@@ -22,6 +26,21 @@ add_action( 'admin_init', function(): void {
 } );
 
 /**
+ * The sections, in order. Keys are the anchor ids the nav links to.
+ *
+ * @return array<string, string>
+ */
+function acumatica_settings_sections(): array {
+    return [
+        'connection'  => 'Connection',
+        'site'        => 'This site',
+        'behaviour'   => 'Sync behaviour',
+        'payments'    => 'Payment methods',
+        'diagnostics' => 'Diagnostics',
+    ];
+}
+
+/**
  * Form field name for one setting.
  */
 function acumatica_field_name( string $key ): string {
@@ -29,7 +48,7 @@ function acumatica_field_name( string $key ): string {
 }
 
 /**
- * One row of the settings form.
+ * One labelled row inside a card.
  *
  * $args: label, type (text|url|secret|checkbox), class, placeholder, toggle
  * (checkbox label), desc (allows inline markup).
@@ -40,20 +59,19 @@ function acumatica_field_row( string $key, array $args ): void {
     $type  = $args['type'] ?? 'text';
     $value = (string) Acumatica_Config::get( $key );
     ?>
-    <tr>
-        <th scope="row">
-            <?php if ( 'secret' === $type ) : ?>
-                <?php echo esc_html( $args['label'] ); ?>
-            <?php else : ?>
-                <label for="<?php echo esc_attr( $id ); ?>"><?php echo esc_html( $args['label'] ); ?></label>
-            <?php endif; ?>
-        </th>
-        <td>
+    <div class="acm-row">
+        <?php if ( 'secret' === $type ) : ?>
+            <span class="acm-row-label"><?php echo esc_html( $args['label'] ); ?></span>
+        <?php else : ?>
+            <label for="<?php echo esc_attr( $id ); ?>"><?php echo esc_html( $args['label'] ); ?></label>
+        <?php endif; ?>
+
+        <div>
             <?php if ( 'secret' === $type ) : ?>
                 <?php acumatica_secret_field( $key ); ?>
 
             <?php elseif ( 'checkbox' === $type ) : ?>
-                <label>
+                <label class="acm-toggle">
                     <?php // Unchecked boxes post nothing, so pair with a hidden 0. ?>
                     <input type="hidden" name="<?php echo esc_attr( $name ); ?>" value="0">
                     <input type="checkbox" id="<?php echo esc_attr( $id ); ?>"
@@ -74,23 +92,27 @@ function acumatica_field_row( string $key, array $args ): void {
             <?php if ( ! empty( $args['desc'] ) ) : ?>
                 <p class="description"><?php echo wp_kses_post( $args['desc'] ); ?></p>
             <?php endif; ?>
-        </td>
-    </tr>
+        </div>
+    </div>
     <?php
 }
 
 /**
- * A block of rows in a form table.
+ * A card of rows.
  *
+ * @param string               $title  Card heading, '' for none
  * @param array<string, array> $fields key => args for acumatica_field_row()
  */
-function acumatica_field_rows( array $fields ): void {
+function acumatica_card( string $title, array $fields ): void {
     ?>
-    <table class="form-table" role="presentation">
+    <div class="acm-card">
+        <?php if ( '' !== $title ) : ?>
+            <h3><?php echo esc_html( $title ); ?></h3>
+        <?php endif; ?>
         <?php foreach ( $fields as $key => $args ) : ?>
             <?php acumatica_field_row( $key, $args ); ?>
         <?php endforeach; ?>
-    </table>
+    </div>
     <?php
 }
 
@@ -181,6 +203,22 @@ function acumatica_gateway_choices(): array {
 }
 
 /**
+ * maxlength attribute for a mapping field, where Acumatica has a hard width.
+ *
+ * An over-long payment method is not rejected as too long. Acumatica cuts it
+ * down to the field width and rejects what it is left with:
+ * STRIPE_AFTERPAY_CLEARPAY arrived as "STRIPE AFT", which does not exist.
+ * Cheaper to stop it being typed.
+ */
+function acumatica_payment_maxlength( string $key ): void {
+    $widths = [ 'acumatica_method' => 10 ];
+
+    if ( isset( $widths[ $key ] ) ) {
+        echo 'maxlength="' . (int) $widths[ $key ] . '"';
+    }
+}
+
+/**
  * Placeholder text showing what a blank field will actually send.
  */
 function acumatica_inherit_hint( string $key, array $fallback ): string {
@@ -229,6 +267,7 @@ function acumatica_payment_method_block( string $index, array $row, array $fallb
                         name="<?php echo esc_attr( $name ); ?>[<?php echo esc_attr( $key ); ?>]"
                         value="<?php echo esc_attr( $row[ $key ] ); ?>"
                         placeholder="<?php echo esc_attr( acumatica_inherit_hint( $key, $fallback ) ); ?>"
+                        <?php acumatica_payment_maxlength( $key ); ?>
                         autocomplete="off" spellcheck="false">
                 </label>
             <?php endforeach; ?>
@@ -332,7 +371,7 @@ function acumatica_sync_settings_page(): void {
     $attempts     = max( 0, (int) Acumatica_Config::get( 'fee_max_attempts' ) );
     $endpoint     = rtrim( (string) Acumatica_Config::get( 'api_url' ), '/' ) . '/' . acumatica_endpoint_path() . '/SalesOrder';
     ?>
-    <div class="wrap acm-wrap">
+    <div class="wrap acm-wrap acm-settings">
         <div class="acm-head">
             <div>
                 <h1>Acumatica Sync</h1>
@@ -368,248 +407,277 @@ function acumatica_sync_settings_page(): void {
             <?php endforeach; ?>
         </div>
 
-        <form method="post" action="options.php" class="acm-form">
+        <form method="post" action="options.php" class="acm-layout">
             <?php settings_fields( 'acumatica_sync_options' ); ?>
 
-            <section class="acm-section">
-                <h2>Connection</h2>
-                <?php acumatica_field_rows( [
-                    'token_url' => [
-                        'label'       => 'Token URL',
-                        'type'        => 'url',
-                        'class'       => 'large-text',
-                        'placeholder' => 'https://yourinstance.acumatica.com/identity/connect/token',
-                    ],
-                    'api_url' => [
-                        'label'       => 'API base URL',
-                        'type'        => 'url',
-                        'class'       => 'large-text',
-                        'placeholder' => 'https://yourinstance.acumatica.com/',
-                    ],
-                    'endpoint_path' => [
-                        'label'       => 'Endpoint path',
-                        'class'       => 'large-text',
-                        'placeholder' => 'entity/Default2/23.200.001',
-                        'desc'        => 'Sits between the base URL and the resource name: <code>entity/{endpoint}/{version}</code>. '
-                            . 'Use your own endpoint name instead of <code>Default2</code> if you publish an extended one, and update '
-                            . 'the version after an Acumatica upgrade. Resolves to <code>' . esc_html( $endpoint ) . '</code>',
-                    ],
-                    'client_id'     => [ 'label' => 'Client ID' ],
-                    'client_secret' => [ 'label' => 'Client secret', 'type' => 'secret' ],
-                    'username'      => [ 'label' => 'Username' ],
-                    'password'      => [ 'label' => 'Password', 'type' => 'secret' ],
-                ] ); ?>
-                <table class="form-table" role="presentation">
-                    <tr>
-                        <th scope="row">Check it works</th>
-                        <td>
-                            <button type="submit" form="acm-actions" name="acumatica_test" class="button">
-                                Test connection
-                            </button>
-                            <button type="submit" form="acm-actions" name="acumatica_refresh" class="button">
-                                Refresh token
-                            </button>
-                            <p class="description">Save first. Both buttons use the stored credentials.</p>
-                        </td>
-                    </tr>
-                </table>
-            </section>
+            <?php // Sticky while the form scrolls past it. The script marks the
+                  // section currently in view. ?>
+            <nav class="acm-nav" aria-label="Settings sections">
+                <?php foreach ( acumatica_settings_sections() as $id => $label ) : ?>
+                    <a href="#<?php echo esc_attr( $id ); ?>"><?php echo esc_html( $label ); ?></a>
+                <?php endforeach; ?>
+            </nav>
 
-            <section class="acm-section">
-                <h2>This site</h2>
-                <?php acumatica_field_rows( [
-                    'host' => [
-                        'label'       => 'Authorised host',
-                        'placeholder' => $current['host'],
-                        'desc'        => 'This site is <code>' . esc_html( $current['host'] ) . '</code>. Syncing runs only while the '
-                            . 'two match. A staging copy or a restored database carries these same settings, and the mismatch is what '
-                            . 'keeps it from posting test orders into Acumatica as real ones.',
-                    ],
-                    'order_type' => [
-                        'label' => 'Order type',
-                        'class' => 'small-text',
-                        'desc'  => 'Acumatica order type used for every order from this site.',
-                    ],
-                    'customer_id' => [
-                        'label' => 'Customer ID',
-                        'desc'  => 'The Acumatica customer that web orders are billed to.',
-                    ],
-                    'website' => [
-                        'label'       => 'Website field',
-                        'placeholder' => $current['host'],
-                        'desc'        => "Sent as the order's Website value. Acumatica's field is short, so use an abbreviation where "
-                            . 'the hostname does not fit. Blank sends the host.',
-                    ],
-                ] ); ?>
-            </section>
+            <div class="acm-sections">
+                <section class="acm-section" id="connection">
+                    <h2>Connection</h2>
+                    <p class="description acm-section-intro">
+                        Where the Acumatica instance lives and what this site signs in as.
+                    </p>
 
-            <section class="acm-section">
-                <h2>Sync behaviour</h2>
-                <?php acumatica_field_rows( [
-                    'enabled' => [
-                        'label'  => 'Enabled',
-                        'type'   => 'checkbox',
-                        'toggle' => 'Send orders and payments to Acumatica',
-                        'desc'   => 'Turn off to stop syncing without deactivating the plugin.',
-                    ],
-                ] ); ?>
-                <table class="form-table" role="presentation">
-                    <tr>
-                        <th scope="row"><label for="acm-fee-retry-delay">Processor fees</label></th>
-                        <td>
-                            <p class="acm-inline">
-                                Wait
-                                <input type="number" id="acm-fee-retry-delay" class="small-text" min="1" step="1"
-                                    name="<?php echo esc_attr( acumatica_field_name( 'fee_retry_delay' ) ); ?>"
-                                    value="<?php echo esc_attr( (string) $delay ); ?>">
-                                minutes between checks, up to
-                                <input type="number" id="acm-fee-max-attempts" class="small-text" min="0" step="1"
-                                    name="<?php echo esc_attr( acumatica_field_name( 'fee_max_attempts' ) ); ?>"
-                                    value="<?php echo esc_attr( (string) $attempts ); ?>">
-                                attempts.
-                            </p>
-                            <p class="description">
-                                Processor fees (PayPal, Stripe) arrive on a webhook after checkout. The payment waits
-                                this long for the fee before posting without it. Set attempts to <code>0</code> to post
-                                immediately and never wait. Worst case delay is
-                                <strong><?php echo esc_html( $delay * $attempts ); ?> minutes</strong>.
-                            </p>
-                        </td>
-                    </tr>
-                </table>
-            </section>
+                    <?php acumatica_card( 'Endpoint', [
+                        'token_url' => [
+                            'label'       => 'Token URL',
+                            'type'        => 'url',
+                            'class'       => 'large-text',
+                            'placeholder' => 'https://yourinstance.acumatica.com/identity/connect/token',
+                        ],
+                        'api_url' => [
+                            'label'       => 'API base URL',
+                            'type'        => 'url',
+                            'class'       => 'large-text',
+                            'placeholder' => 'https://yourinstance.acumatica.com/',
+                        ],
+                        'endpoint_path' => [
+                            'label'       => 'Endpoint path',
+                            'class'       => 'large-text',
+                            'placeholder' => 'entity/Default2/23.200.001',
+                            'desc'        => 'Sits between the base URL and the resource name: <code>entity/{endpoint}/{version}</code>. '
+                                . 'Use your own endpoint name instead of <code>Default2</code> if you publish an extended one, and update '
+                                . 'the version after an Acumatica upgrade. Resolves to <code>' . esc_html( $endpoint ) . '</code>',
+                        ],
+                    ] ); ?>
 
-            <section class="acm-section">
-                <h2>Payment methods</h2>
-                <p class="description acm-section-intro">
-                    One block per WooCommerce payment method. A blank field takes the default from the Defaults block
-                    below, and each placeholder shows what that will send. A block also covers the gateway's own
-                    sub-methods, so <code>stripe</code> catches <code>stripe_afterpay_clearpay</code> unless that has a
-                    block of its own.
-                </p>
+                    <?php acumatica_card( 'Credentials', [
+                        'client_id'     => [ 'label' => 'Client ID' ],
+                        'client_secret' => [ 'label' => 'Client secret', 'type' => 'secret' ],
+                        'username'      => [ 'label' => 'Username' ],
+                        'password'      => [ 'label' => 'Password', 'type' => 'secret' ],
+                    ] ); ?>
 
-                <?php // Suggestions for the method field. Free text either way, so a
-                      // gateway that is switched off or not installed still maps. ?>
-                <datalist id="acm-gateways">
-                    <?php foreach ( $gateways as $slug => $title ) : ?>
-                        <option value="<?php echo esc_attr( $slug ); ?>"><?php echo esc_html( $title ); ?></option>
-                    <?php endforeach; ?>
-                </datalist>
+                    <div class="acm-card">
+                        <div class="acm-row">
+                            <span class="acm-row-label">Check it works</span>
+                            <div>
+                                <p class="acm-buttons">
+                                    <button type="submit" form="acm-actions" name="acumatica_test" class="button">
+                                        Test connection
+                                    </button>
+                                    <button type="submit" form="acm-actions" name="acumatica_refresh" class="button">
+                                        Refresh token
+                                    </button>
+                                </p>
+                                <p class="description">Save first. Both buttons use the stored credentials.</p>
+                            </div>
+                        </div>
+                    </div>
+                </section>
 
-                <div class="acm-methods">
-                    <?php foreach ( $payment_rows as $i => $row ) : ?>
-                        <?php acumatica_payment_method_block( (string) (int) $i, $row, $fallback_row ); ?>
-                    <?php endforeach; ?>
-                </div>
+                <section class="acm-section" id="site">
+                    <h2>This site</h2>
+                    <p class="description acm-section-intro">
+                        Which install is allowed to sync, and what goes on every order it sends.
+                    </p>
 
-                <p class="acm-methods-empty" <?php echo $payment_rows ? 'hidden' : ''; ?>>
-                    No methods mapped yet. Every method uses the defaults below.
-                </p>
+                    <?php acumatica_card( '', [
+                        'host' => [
+                            'label'       => 'Authorised host',
+                            'placeholder' => $current['host'],
+                            'desc'        => 'This site is <code>' . esc_html( $current['host'] ) . '</code>. Syncing runs only while the '
+                                . 'two match. A staging copy or a restored database carries these same settings, and the mismatch is what '
+                                . 'keeps it from posting test orders into Acumatica as real ones.',
+                        ],
+                        'order_type' => [
+                            'label' => 'Order type',
+                            'class' => 'small-text',
+                            'desc'  => 'Acumatica order type used for every order from this site.',
+                        ],
+                        'customer_id' => [
+                            'label' => 'Customer ID',
+                            'desc'  => 'The Acumatica customer that web orders are billed to.',
+                        ],
+                        'website' => [
+                            'label'       => 'Website field',
+                            'placeholder' => $current['host'],
+                            'desc'        => "Sent as the order's Website value. Acumatica's field is short, so use an abbreviation where "
+                                . 'the hostname does not fit. Blank sends the host.',
+                        ],
+                    ] ); ?>
+                </section>
 
-                <p>
-                    <button type="button" class="button acm-add-method"
-                        data-next-index="<?php echo esc_attr( (string) count( $payment_rows ) ); ?>">
-                        <span class="dashicons dashicons-plus-alt2"></span> Add method
-                    </button>
-                </p>
+                <section class="acm-section" id="behaviour">
+                    <h2>Sync behaviour</h2>
 
-                <?php // Cloned by the Add button. __i__ becomes the next free index. ?>
-                <template id="acm-method-template">
-                    <?php acumatica_payment_method_block( '__i__', Acumatica_Config::blank_payment_row(), $fallback_row ); ?>
-                </template>
+                    <?php acumatica_card( '', [
+                        'enabled' => [
+                            'label'  => 'Enabled',
+                            'type'   => 'checkbox',
+                            'toggle' => 'Send orders and payments to Acumatica',
+                            'desc'   => 'Turn off to stop syncing without deactivating the plugin.',
+                        ],
+                    ] ); ?>
 
-                <h3>Defaults</h3>
-                <p class="description acm-section-intro">
-                    Used for any method with no block above, and for any blank field in one. A blank payment method
-                    sends the WooCommerce slug upper-cased, which Acumatica rejects unless it recognises it. The fee
-                    meta key is never inherited, so a method with no processor fee does not sit waiting for one that
-                    never arrives.
-                </p>
-                <div class="acm-method acm-method-fallback">
-                    <div class="acm-method-fields">
-                        <?php foreach ( Acumatica_Config::PAYMENT_FIELDS as $key => $label ) : ?>
-                            <?php if ( 'wc_method' === $key ) { continue; } ?>
-                            <label class="acm-field">
-                                <span><?php echo esc_html( $label ); ?></span>
-                                <input type="text"
-                                    name="<?php echo esc_attr( Acumatica_Config::OPTION ); ?>[payment_defaults][<?php echo esc_attr( $key ); ?>]"
-                                    value="<?php echo esc_attr( $fallback_row[ $key ] ); ?>"
-                                    autocomplete="off" spellcheck="false">
-                            </label>
+                    <div class="acm-card">
+                        <div class="acm-row">
+                            <label for="acm-fee-retry-delay">Processor fees</label>
+                            <div>
+                                <p class="acm-inline">
+                                    Wait
+                                    <input type="number" id="acm-fee-retry-delay" class="small-text" min="1" step="1"
+                                        name="<?php echo esc_attr( acumatica_field_name( 'fee_retry_delay' ) ); ?>"
+                                        value="<?php echo esc_attr( (string) $delay ); ?>">
+                                    minutes between checks, up to
+                                    <input type="number" id="acm-fee-max-attempts" class="small-text" min="0" step="1"
+                                        name="<?php echo esc_attr( acumatica_field_name( 'fee_max_attempts' ) ); ?>"
+                                        value="<?php echo esc_attr( (string) $attempts ); ?>">
+                                    attempts.
+                                </p>
+                                <p class="description">
+                                    Processor fees (PayPal, Stripe) arrive on a webhook after checkout. The payment waits
+                                    this long for the fee before posting without it. Set attempts to <code>0</code> to post
+                                    immediately and never wait. Worst case delay is
+                                    <strong><?php echo esc_html( $delay * $attempts ); ?> minutes</strong>.
+                                </p>
+                            </div>
+                        </div>
+                    </div>
+                </section>
+
+                <section class="acm-section" id="payments">
+                    <h2>Payment methods</h2>
+                    <p class="description acm-section-intro">
+                        One block per WooCommerce payment method. A blank field takes the default from the Defaults card
+                        below, and each placeholder shows what that will send. A block also covers the gateway's own
+                        sub-methods, so <code>stripe</code> catches <code>stripe_afterpay_clearpay</code> unless that has a
+                        block of its own. Payment method is capped at 10 characters, which is the width Acumatica stores.
+                    </p>
+
+                    <?php // Suggestions for the method field. Free text either way, so a
+                          // gateway that is switched off or not installed still maps. ?>
+                    <datalist id="acm-gateways">
+                        <?php foreach ( $gateways as $slug => $title ) : ?>
+                            <option value="<?php echo esc_attr( $slug ); ?>"><?php echo esc_html( $title ); ?></option>
+                        <?php endforeach; ?>
+                    </datalist>
+
+                    <div class="acm-methods">
+                        <?php foreach ( $payment_rows as $i => $row ) : ?>
+                            <?php acumatica_payment_method_block( (string) (int) $i, $row, $fallback_row ); ?>
                         <?php endforeach; ?>
                     </div>
+
+                    <p class="acm-methods-empty" <?php echo $payment_rows ? 'hidden' : ''; ?>>
+                        No methods mapped yet. Every method uses the defaults below.
+                    </p>
+
+                    <p>
+                        <button type="button" class="button acm-add-method"
+                            data-next-index="<?php echo esc_attr( (string) count( $payment_rows ) ); ?>">
+                            <span class="dashicons dashicons-plus-alt2"></span> Add method
+                        </button>
+                    </p>
+
+                    <?php // Cloned by the Add button. __i__ becomes the next free index. ?>
+                    <template id="acm-method-template">
+                        <?php acumatica_payment_method_block( '__i__', Acumatica_Config::blank_payment_row(), $fallback_row ); ?>
+                    </template>
+
+                    <div class="acm-card">
+                        <h3>Defaults</h3>
+                        <p class="description">
+                            Used for any method with no block above, and for any blank field in one. A blank payment
+                            method sends the WooCommerce slug upper-cased, which Acumatica rejects unless it recognises
+                            it. The fee meta key is never inherited, so a method with no processor fee does not sit
+                            waiting for one that never arrives.
+                        </p>
+                        <div class="acm-method-fields">
+                            <?php foreach ( Acumatica_Config::PAYMENT_FIELDS as $key => $label ) : ?>
+                                <?php if ( 'wc_method' === $key ) { continue; } ?>
+                                <label class="acm-field">
+                                    <span><?php echo esc_html( $label ); ?></span>
+                                    <input type="text"
+                                        name="<?php echo esc_attr( Acumatica_Config::OPTION ); ?>[payment_defaults][<?php echo esc_attr( $key ); ?>]"
+                                        value="<?php echo esc_attr( $fallback_row[ $key ] ); ?>"
+                                        <?php acumatica_payment_maxlength( $key ); ?>
+                                        autocomplete="off" spellcheck="false">
+                                </label>
+                            <?php endforeach; ?>
+                        </div>
+                    </div>
+                </section>
+
+                <section class="acm-section" id="diagnostics">
+                    <h2>Diagnostics</h2>
+                    <div class="acm-card">
+                        <table class="acm-table">
+                            <tbody>
+                                <tr>
+                                    <th style="width:180px;">Token expires</th>
+                                    <td>
+                                        <?php echo $token['expires']
+                                            ? esc_html( wp_date( 'M j, Y g:i a', $token['expires'] ) )
+                                            : '—'; ?>
+                                    </td>
+                                </tr>
+                                <tr>
+                                    <th>Access token</th>
+                                    <td>
+                                        <code class="acm-mono"><?php echo $token['token']
+                                            ? esc_html( substr( $token['token'], 0, 48 ) . '…' )
+                                            : '—'; ?></code>
+                                    </td>
+                                </tr>
+                                <tr>
+                                    <th>Refresh token</th>
+                                    <td>
+                                        <code class="acm-mono"><?php echo $token['refresh']
+                                            ? esc_html( substr( $token['refresh'], 0, 48 ) . '…' )
+                                            : '—'; ?></code>
+                                    </td>
+                                </tr>
+                                <tr>
+                                    <th>Sending as</th>
+                                    <td>
+                                        <code><?php echo esc_html( $current['website'] ); ?></code>
+                                        order type <code><?php echo esc_html( $current['order_type'] ?: '—' ); ?></code>
+                                        for customer <code><?php echo esc_html( $current['customer_id'] ?: '—' ); ?></code>
+                                    </td>
+                                </tr>
+                                <tr>
+                                    <th>Log purge</th>
+                                    <td>
+                                        <?php
+                                        $next = wp_next_scheduled( 'acumatica_logs_purge_event' );
+                                        echo $next
+                                            ? esc_html( 'Next run ' . wp_date( 'M j, g:i a', $next ) . ' · keeps 30 days' )
+                                            : 'Not scheduled';
+                                        ?>
+                                    </td>
+                                </tr>
+                                <tr>
+                                    <th>Version</th>
+                                    <td>
+                                        <code><?php echo esc_html( ACUMATICA_SYNC_VERSION ); ?></code>
+                                        <a href="https://github.com/sai-giggear/acumatica-order-payment-sync/releases"
+                                            target="_blank" rel="noopener">Releases</a>
+                                        <span class="description">
+                                            Checked twice a day. "Check for updates" on the
+                                            <a href="<?php echo esc_url( admin_url( 'plugins.php' ) ); ?>">plugins screen</a>
+                                            forces it now.
+                                        </span>
+                                    </td>
+                                </tr>
+                            </tbody>
+                        </table>
+                    </div>
+                </section>
+
+                <div class="acm-savebar">
+                    <?php submit_button( 'Save settings', 'primary', 'submit', false ); ?>
+                    <?php if ( ! $sync_on ) : ?>
+                        <span class="acm-pill acm-pill-idle">Sync off</span>
+                    <?php endif; ?>
                 </div>
-            </section>
-
-            <section class="acm-section">
-                <h2>Diagnostics</h2>
-                <table class="acm-table">
-                    <tbody>
-                        <tr>
-                            <th style="width:180px;">Token expires</th>
-                            <td>
-                                <?php echo $token['expires']
-                                    ? esc_html( wp_date( 'M j, Y g:i a', $token['expires'] ) )
-                                    : '—'; ?>
-                            </td>
-                        </tr>
-                        <tr>
-                            <th>Access token</th>
-                            <td>
-                                <code class="acm-mono"><?php echo $token['token']
-                                    ? esc_html( substr( $token['token'], 0, 48 ) . '…' )
-                                    : '—'; ?></code>
-                            </td>
-                        </tr>
-                        <tr>
-                            <th>Refresh token</th>
-                            <td>
-                                <code class="acm-mono"><?php echo $token['refresh']
-                                    ? esc_html( substr( $token['refresh'], 0, 48 ) . '…' )
-                                    : '—'; ?></code>
-                            </td>
-                        </tr>
-                        <tr>
-                            <th>Sending as</th>
-                            <td>
-                                <code><?php echo esc_html( $current['website'] ); ?></code>
-                                order type <code><?php echo esc_html( $current['order_type'] ?: '—' ); ?></code>
-                                for customer <code><?php echo esc_html( $current['customer_id'] ?: '—' ); ?></code>
-                            </td>
-                        </tr>
-                        <tr>
-                            <th>Log purge</th>
-                            <td>
-                                <?php
-                                $next = wp_next_scheduled( 'acumatica_logs_purge_event' );
-                                echo $next
-                                    ? esc_html( 'Next run ' . wp_date( 'M j, g:i a', $next ) . ' · keeps 30 days' )
-                                    : 'Not scheduled';
-                                ?>
-                            </td>
-                        </tr>
-                        <tr>
-                            <th>Version</th>
-                            <td>
-                                <code><?php echo esc_html( ACUMATICA_SYNC_VERSION ); ?></code>
-                                <a href="https://github.com/sai-giggear/acumatica-order-payment-sync/releases"
-                                    target="_blank" rel="noopener">Releases</a>
-                                <span class="description">
-                                    Checked twice a day. "Check for updates" on the
-                                    <a href="<?php echo esc_url( admin_url( 'plugins.php' ) ); ?>">plugins screen</a>
-                                    forces it now.
-                                </span>
-                            </td>
-                        </tr>
-                    </tbody>
-                </table>
-            </section>
-
-            <div class="acm-savebar">
-                <?php submit_button( 'Save settings', 'primary', 'submit', false ); ?>
-                <?php if ( ! $sync_on ) : ?>
-                    <span class="acm-pill acm-pill-idle">Sync off</span>
-                <?php endif; ?>
             </div>
         </form>
 
