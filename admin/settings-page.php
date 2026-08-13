@@ -220,8 +220,15 @@ function acumatica_payment_maxlength( string $key ): void {
 
 /**
  * Placeholder text showing what a blank field will actually send.
+ *
+ * $fallback is null on the Defaults card, where there is nothing above to
+ * inherit from and most fields simply go unsent.
  */
-function acumatica_inherit_hint( string $key, array $fallback ): string {
+function acumatica_inherit_hint( string $key, ?array $fallback ): string {
+    if ( null === $fallback ) {
+        return 'acumatica_method' === $key ? 'Slug, upper-cased' : '';
+    }
+
     // The fee key is taken literally rather than inherited, so a method with no
     // processor fee does not sit waiting for one that never arrives.
     if ( 'fee_meta_key' === $key ) {
@@ -238,41 +245,139 @@ function acumatica_inherit_hint( string $key, array $fallback ): string {
 }
 
 /**
- * Render one payment-method block.
+ * The mapping fields split into the two jobs they do.
+ *
+ * Six inputs in one grid all look alike. Three of them decide what the payment
+ * looks like in Acumatica, three decide how the processor fee is captured, and
+ * most methods only ever fill in one of the pair.
+ *
+ * @return array<string, array<int, string>>
+ */
+function acumatica_payment_groups(): array {
+    return [
+        'What Acumatica receives' => [ 'acumatica_method', 'entry_type', 'cash_account' ],
+        'Processor fee'           => [ 'fee_meta_key', 'fee_account', 'fee_subaccount' ],
+    ];
+}
+
+/**
+ * The grouped mapping inputs, shared by a method block and the Defaults card.
+ *
+ * $prefix is the form-name prefix for the row. $fallback is the defaults a blank
+ * field inherits, or null on the Defaults card itself.
+ */
+function acumatica_payment_fields( string $prefix, array $row, ?array $fallback ): void {
+    foreach ( acumatica_payment_groups() as $title => $keys ) : ?>
+        <fieldset class="acm-group">
+            <legend><?php echo esc_html( $title ); ?></legend>
+            <div class="acm-method-fields">
+                <?php foreach ( $keys as $key ) : ?>
+                    <label class="acm-field">
+                        <span><?php echo esc_html( Acumatica_Config::PAYMENT_FIELDS[ $key ] ); ?></span>
+                        <input type="text" data-key="<?php echo esc_attr( $key ); ?>"
+                            name="<?php echo esc_attr( $prefix ); ?>[<?php echo esc_attr( $key ); ?>]"
+                            value="<?php echo esc_attr( $row[ $key ] ); ?>"
+                            placeholder="<?php echo esc_attr( acumatica_inherit_hint( $key, $fallback ) ); ?>"
+                            <?php acumatica_payment_maxlength( $key ); ?>
+                            autocomplete="off" spellcheck="false">
+                    </label>
+                <?php endforeach; ?>
+            </div>
+        </fieldset>
+    <?php endforeach;
+}
+
+/**
+ * What Acumatica ends up being sent for a row, mirroring get_payment_config():
+ * the row's own value, then the default, then the slug upper-cased.
+ */
+function acumatica_resolved_method( array $row, array $fallback ): string {
+    foreach ( [ $row['acumatica_method'], $fallback['acumatica_method'], strtoupper( $row['wc_method'] ) ] as $value ) {
+        if ( '' !== $value ) {
+            return $value;
+        }
+    }
+
+    return '—';
+}
+
+/**
+ * How many of a row's fields are set rather than inherited.
+ */
+function acumatica_override_label( array $row ): string {
+    $set = 0;
+
+    foreach ( Acumatica_Config::PAYMENT_FIELDS as $key => $label ) {
+        if ( 'wc_method' !== $key && '' !== $row[ $key ] ) {
+            $set++;
+        }
+    }
+
+    return match ( $set ) {
+        0       => 'All defaults',
+        1       => '1 override',
+        default => $set . ' overrides',
+    };
+}
+
+/**
+ * Render one payment-method block, collapsed.
+ *
+ * The summary line carries what someone scanning the list came for: the slug,
+ * whether a gateway of that name exists here, what Acumatica is sent, and how
+ * much of the row differs from the defaults. Six inputs per method open only
+ * when one is being edited, so ten mappings stay a list rather than a wall.
+ *
+ * Native <details>, so the open state costs no script. The summary does go stale
+ * while a block is open, which is what the script keeps in step.
  *
  * $index is a string so the same function renders both the saved blocks and the
  * hidden <template> the Add button clones, which carries the literal __i__ the
  * script swaps for a fresh index.
+ *
+ * @param array<string, string> $gateways slug => title, for naming the slug
  */
-function acumatica_payment_method_block( string $index, array $row, array $fallback ): void {
-    $name = Acumatica_Config::OPTION . '[payment_methods][' . $index . ']';
+function acumatica_payment_method_block( string $index, array $row, array $fallback, array $gateways ): void {
+    $name  = Acumatica_Config::OPTION . '[payment_methods][' . $index . ']';
+    $slug  = $row['wc_method'];
+    $known = isset( $gateways[ $slug ] );
     ?>
-    <div class="acm-method">
-        <div class="acm-method-head">
+    <details class="acm-method" data-default-method="<?php echo esc_attr( $fallback['acumatica_method'] ); ?>">
+        <summary class="acm-method-head">
+            <code class="acm-method-slug"><?php echo esc_html( '' !== $slug ? $slug : 'New mapping' ); ?></code>
+            <span class="acm-method-gateway<?php echo $known ? '' : ' is-unknown'; ?>">
+                <?php
+                echo esc_html( $known
+                    ? $gateways[ $slug ]
+                    : ( '' !== $slug ? 'No gateway with this slug' : 'No method set' ) );
+                ?>
+            </span>
+            <span class="acm-method-target">
+                <code><?php echo esc_html( acumatica_resolved_method( $row, $fallback ) ); ?></code>
+            </span>
+            <span class="acm-method-count"><?php echo esc_html( acumatica_override_label( $row ) ); ?></span>
+        </summary>
+
+        <div class="acm-method-body">
             <label class="acm-field acm-field-slug">
                 <span>WooCommerce method</span>
                 <input type="text" list="acm-gateways" class="acm-slug"
                     name="<?php echo esc_attr( $name ); ?>[wc_method]"
-                    value="<?php echo esc_attr( $row['wc_method'] ); ?>"
+                    value="<?php echo esc_attr( $slug ); ?>"
                     placeholder="e.g. stripe" autocomplete="off" spellcheck="false">
+                <span class="description">
+                    The gateway id, which also covers its sub-methods. Pick from the list or type one
+                    that is switched off or not installed yet.
+                </span>
             </label>
-            <button type="button" class="button acm-remove-method">Remove</button>
+
+            <?php acumatica_payment_fields( $name, $row, $fallback ); ?>
+
+            <div class="acm-method-foot">
+                <button type="button" class="button-link acm-remove-method">Remove this mapping</button>
+            </div>
         </div>
-        <div class="acm-method-fields">
-            <?php foreach ( Acumatica_Config::PAYMENT_FIELDS as $key => $label ) : ?>
-                <?php if ( 'wc_method' === $key ) { continue; } ?>
-                <label class="acm-field">
-                    <span><?php echo esc_html( $label ); ?></span>
-                    <input type="text"
-                        name="<?php echo esc_attr( $name ); ?>[<?php echo esc_attr( $key ); ?>]"
-                        value="<?php echo esc_attr( $row[ $key ] ); ?>"
-                        placeholder="<?php echo esc_attr( acumatica_inherit_hint( $key, $fallback ) ); ?>"
-                        <?php acumatica_payment_maxlength( $key ); ?>
-                        autocomplete="off" spellcheck="false">
-                </label>
-            <?php endforeach; ?>
-        </div>
-    </div>
+    </details>
     <?php
 }
 
@@ -546,11 +651,29 @@ function acumatica_sync_settings_page(): void {
                 <section class="acm-section" id="payments">
                     <h2>Payment methods</h2>
                     <p class="description acm-section-intro">
-                        One block per WooCommerce payment method. A blank field takes the default from the Defaults card
-                        below, and each placeholder shows what that will send. A block also covers the gateway's own
-                        sub-methods, so <code>stripe</code> catches <code>stripe_afterpay_clearpay</code> unless that has a
-                        block of its own. Payment method is capped at 10 characters, which is the width Acumatica stores.
+                        Every payment starts from the defaults below and a mapping changes only the fields it fills in.
+                        A mapping also covers the gateway's own sub-methods, so <code>stripe</code> catches
+                        <code>stripe_afterpay_clearpay</code> unless that has a mapping of its own. Payment method is
+                        capped at 10 characters, the width Acumatica stores.
                     </p>
+
+                    <?php // The base row first: the overrides underneath are read against
+                          // it, and their placeholders quote it. ?>
+                    <div class="acm-card acm-defaults">
+                        <h3>Defaults</h3>
+                        <p class="description">
+                            Used for any method with no mapping, and for any field a mapping leaves blank. A blank
+                            payment method sends the WooCommerce slug upper-cased, which Acumatica rejects unless it
+                            recognises it. The fee meta key is never inherited, so a method with no processor fee does
+                            not sit waiting for one that never arrives.
+                        </p>
+                        <?php acumatica_payment_fields( Acumatica_Config::OPTION . '[payment_defaults]', $fallback_row, null ); ?>
+                    </div>
+
+                    <h3 class="acm-methods-title">
+                        Mappings
+                        <span class="description">Open one to edit it.</span>
+                    </h3>
 
                     <?php // Suggestions for the method field. Free text either way, so a
                           // gateway that is switched off or not installed still maps. ?>
@@ -562,48 +685,25 @@ function acumatica_sync_settings_page(): void {
 
                     <div class="acm-methods">
                         <?php foreach ( $payment_rows as $i => $row ) : ?>
-                            <?php acumatica_payment_method_block( (string) (int) $i, $row, $fallback_row ); ?>
+                            <?php acumatica_payment_method_block( (string) (int) $i, $row, $fallback_row, $gateways ); ?>
                         <?php endforeach; ?>
                     </div>
 
                     <p class="acm-methods-empty" <?php echo $payment_rows ? 'hidden' : ''; ?>>
-                        No methods mapped yet. Every method uses the defaults below.
+                        No mappings yet. Every method uses the defaults above.
                     </p>
 
                     <p>
                         <button type="button" class="button acm-add-method"
                             data-next-index="<?php echo esc_attr( (string) count( $payment_rows ) ); ?>">
-                            <span class="dashicons dashicons-plus-alt2"></span> Add method
+                            <span class="dashicons dashicons-plus-alt2"></span> Add mapping
                         </button>
                     </p>
 
                     <?php // Cloned by the Add button. __i__ becomes the next free index. ?>
                     <template id="acm-method-template">
-                        <?php acumatica_payment_method_block( '__i__', Acumatica_Config::blank_payment_row(), $fallback_row ); ?>
+                        <?php acumatica_payment_method_block( '__i__', Acumatica_Config::blank_payment_row(), $fallback_row, $gateways ); ?>
                     </template>
-
-                    <div class="acm-card">
-                        <h3>Defaults</h3>
-                        <p class="description">
-                            Used for any method with no block above, and for any blank field in one. A blank payment
-                            method sends the WooCommerce slug upper-cased, which Acumatica rejects unless it recognises
-                            it. The fee meta key is never inherited, so a method with no processor fee does not sit
-                            waiting for one that never arrives.
-                        </p>
-                        <div class="acm-method-fields">
-                            <?php foreach ( Acumatica_Config::PAYMENT_FIELDS as $key => $label ) : ?>
-                                <?php if ( 'wc_method' === $key ) { continue; } ?>
-                                <label class="acm-field">
-                                    <span><?php echo esc_html( $label ); ?></span>
-                                    <input type="text"
-                                        name="<?php echo esc_attr( Acumatica_Config::OPTION ); ?>[payment_defaults][<?php echo esc_attr( $key ); ?>]"
-                                        value="<?php echo esc_attr( $fallback_row[ $key ] ); ?>"
-                                        <?php acumatica_payment_maxlength( $key ); ?>
-                                        autocomplete="off" spellcheck="false">
-                                </label>
-                            <?php endforeach; ?>
-                        </div>
-                    </div>
                 </section>
 
                 <section class="acm-section" id="diagnostics">

@@ -597,8 +597,21 @@ a.acm-stat:focus {
 		padding-right: 0;
 	}
 
+	/* Slug and gateway on one line, what it sends underneath. The chevron and
+	   the override count go: the open state is its own affordance and the count
+	   is a nicety. */
 	.acm-method-head {
-		flex-wrap: wrap;
+		grid-template-columns: auto minmax( 0, 1fr );
+		row-gap: 4px;
+	}
+
+	.acm-method-target {
+		grid-column: 1 / -1;
+	}
+
+	.acm-method-count,
+	.acm-method-head::after {
+		display: none;
 	}
 }
 
@@ -720,10 +733,10 @@ a.acm-stat:focus {
 	margin: 0;
 }
 
-/* The defaults card holds the same field grid as a method block, without the
+/* The defaults card holds the same field groups as a method block, without the
    block's own border sitting inside the card. */
-.acm-card > .acm-method-fields {
-	margin: 14px 0 12px;
+.acm-card > .acm-group:last-of-type {
+	margin-bottom: 16px;
 }
 
 @media screen and ( max-width: 960px ) {
@@ -753,34 +766,164 @@ a.acm-stat:focus {
 
 /* Payment method mapping */
 
-/* One wrapping block per method. Seven fields in a row side-scrolled at every
-   window size. */
+/* A collapsed row per mapping. The summary is the scanning surface; the six
+   inputs only appear for the one being edited. */
+
+.acm-section > .acm-methods-title {
+	display: flex;
+	flex-wrap: wrap;
+	align-items: baseline;
+	gap: 2px 10px;
+	margin: 26px 0 10px;
+}
+
+.acm-methods-title .description {
+	font-weight: 400;
+	font-size: 12px;
+	color: var(--acm-muted);
+}
 
 .acm-methods {
 	display: flex;
 	flex-direction: column;
-	gap: 12px;
+	gap: 8px;
 }
 
 .acm-method {
-	padding: 12px 16px 16px;
 	background: var(--acm-bg);
 	border: 1px solid var(--acm-border);
 	border-radius: var(--acm-radius);
+	box-shadow: var(--acm-shadow);
 }
 
 .acm-method-head {
-	display: flex;
-	align-items: flex-end;
-	gap: 12px;
-	padding-bottom: 12px;
-	margin-bottom: 14px;
-	border-bottom: 1px solid var(--acm-border-soft);
+	display: grid;
+	grid-template-columns: minmax( 120px, 1.1fr ) minmax( 0, 1.4fr ) minmax( 90px, 1fr ) 110px 18px;
+	align-items: center;
+	gap: 14px;
+	padding: 11px 14px;
+	cursor: pointer;
+	border-radius: var(--acm-radius);
+	list-style: none;
+	font-size: 13px;
 }
 
-.acm-method-head .acm-remove-method {
-	margin-left: auto;
+.acm-method-head::-webkit-details-marker {
+	display: none;
+}
+
+.acm-method-head:hover {
+	background: var(--acm-bg-sunken);
+}
+
+/* Expand affordance, since the default marker is hidden. */
+.acm-method-head::after {
+	content: "\f347";
+	font-family: dashicons;
+	font-size: 18px;
+	line-height: 1;
+	color: var(--acm-muted);
+	transition: transform .15s ease;
+}
+
+.acm-method[open] > .acm-method-head::after {
+	transform: rotate( 180deg );
+}
+
+.acm-method[open] > .acm-method-head {
+	border-radius: var(--acm-radius) var(--acm-radius) 0 0;
+	border-bottom: 1px solid var(--acm-border-soft);
+	background: var(--acm-bg-sunken);
+}
+
+.acm-method-slug,
+.acm-method-target code {
+	display: inline-block;
+	max-width: 100%;
+	background: var(--acm-bg-sunken);
+	padding: 2px 7px;
+	border-radius: 4px;
+	font-size: 12px;
+	vertical-align: middle;
+	overflow: hidden;
+	text-overflow: ellipsis;
+	white-space: nowrap;
+}
+
+.acm-method-slug {
+	font-weight: 600;
+	justify-self: start;
+	max-width: 100%;
+}
+
+.acm-method[open] > .acm-method-head .acm-method-slug,
+.acm-method[open] > .acm-method-head .acm-method-target code {
+	background: var(--acm-bg);
+}
+
+.acm-method-gateway {
+	color: var(--acm-muted);
+	overflow: hidden;
+	text-overflow: ellipsis;
+	white-space: nowrap;
+}
+
+/* A slug no installed gateway answers to. Not an error: a mapping outlives the
+   gateway being switched off or moved. Worth seeing before it is a typo. */
+.acm-method-gateway.is-unknown {
+	color: var(--acm-warn);
+	font-style: italic;
+}
+
+/* What Acumatica is actually sent, defaults folded in. */
+.acm-method-target::before {
+	content: "\2192";
+	margin-right: 6px;
+	color: var(--acm-muted);
+}
+
+.acm-method-count {
+	text-align: right;
+	font-size: 12px;
+	color: var(--acm-muted);
+	white-space: nowrap;
+}
+
+.acm-method-body {
+	padding: 4px 16px 14px;
+}
+
+.acm-method-foot {
+	display: flex;
+	justify-content: flex-end;
+	margin-top: 14px;
+}
+
+.acm-remove-method {
 	color: var(--acm-fail);
+}
+
+/* Field groups. Borderless: a fieldset rule and a legend fight over the same
+   few pixels in every browser, and the heading already groups them. */
+
+.acm-group {
+	margin: 16px 0 0;
+	padding: 0;
+	border: 0;
+	min-width: 0;
+}
+
+.acm-group > legend {
+	padding: 0;
+	font-size: 11px;
+	font-weight: 700;
+	text-transform: uppercase;
+	letter-spacing: .05em;
+	color: var(--acm-muted);
+}
+
+.acm-group > legend + .acm-method-fields {
+	margin-top: 8px;
 }
 
 .acm-method-fields {
@@ -817,11 +960,22 @@ a.acm-stat:focus {
 }
 
 .acm-field-slug {
-	flex: 0 1 260px;
+	max-width: 460px;
+	padding-top: 14px;
 }
 
 .acm-field-slug input {
+	max-width: 300px;
 	font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+}
+
+/* Beats .acm-field > span, which is the small bold label treatment. */
+.acm-field-slug > .description {
+	margin-top: 4px;
+	font-size: 12px;
+	font-weight: 400;
+	color: var(--acm-muted);
+	max-width: 60ch;
 }
 
 .acm-methods-empty {

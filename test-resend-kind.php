@@ -374,6 +374,30 @@ assert( 'Slug, upper-cased' === acumatica_inherit_hint(
     'acumatica_method',
     Acumatica_Config::blank_payment_row()
 ) );
+// The Defaults card has nothing above it to inherit from, so it must not quote
+// a default at itself. Only the upper-cased slug still applies there.
+assert( 'Slug, upper-cased' === acumatica_inherit_hint( 'acumatica_method', null ) );
+assert( '' === acumatica_inherit_hint( 'cash_account', null ) );
+
+// --- collapsed mapping summary ---
+// The summary is all that shows while a mapping is closed, so it has to agree
+// with get_payment_config() rather than with what is typed in the row.
+$row = array_merge( Acumatica_Config::blank_payment_row(), [ 'wc_method' => 'stripe' ] );
+
+assert( 'CREDITCARD' === acumatica_resolved_method( $row, $fallback ) );
+assert( 'All defaults' === acumatica_override_label( $row ) );
+// The row's own value wins over the default.
+assert( 'STRIPE' === acumatica_resolved_method(
+    array_merge( $row, [ 'acumatica_method' => 'STRIPE' ] ),
+    $fallback
+) );
+// Neither set: the slug upper-cased, same as get_payment_config().
+assert( 'STRIPE' === acumatica_resolved_method( $row, Acumatica_Config::blank_payment_row() ) );
+// The slug is not an override of anything, so it must not be counted.
+assert( '1 override' === acumatica_override_label( array_merge( $row, [ 'cash_account' => '10300' ] ) ) );
+assert( '2 overrides' === acumatica_override_label(
+    array_merge( $row, [ 'cash_account' => '10300', 'entry_type' => 'PAYMENT' ] )
+) );
 
 // --- field errors in a rejected record ---
 // Real case: order ST-136003. Acumatica answered with the whole sales order and

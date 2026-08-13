@@ -18,10 +18,71 @@
 
 		var empty = document.querySelector( '.acm-methods-empty' );
 
+		// Gateway titles are already in the page as datalist options, so the
+		// summary can name a slug without a second copy of the list.
+		var titles = {};
+		document.querySelectorAll( '#acm-gateways option' ).forEach( function ( option ) {
+			titles[ option.value ] = option.textContent;
+		} );
+
 		function syncEmpty() {
 			if ( empty ) {
 				empty.hidden = list.children.length > 0;
 			}
+		}
+
+		// The summary is all that survives the block being collapsed again, so it
+		// tracks the inputs rather than staying as the page was rendered.
+		function refresh( block ) {
+			var slug = block.querySelector( '.acm-slug' ).value.trim();
+			var known = Object.prototype.hasOwnProperty.call( titles, slug );
+			var method = '';
+			var overrides = 0;
+
+			block.querySelectorAll( '[data-key]' ).forEach( function ( field ) {
+				var value = field.value.trim();
+				if ( value === '' ) {
+					return;
+				}
+				overrides++;
+				if ( field.dataset.key === 'acumatica_method' ) {
+					method = value;
+				}
+			} );
+
+			var gateway = block.querySelector( '.acm-method-gateway' );
+
+			block.querySelector( '.acm-method-slug' ).textContent = slug || 'New mapping';
+			gateway.textContent = known
+				? titles[ slug ]
+				: ( slug ? 'No gateway with this slug' : 'No method set' );
+			gateway.classList.toggle( 'is-unknown', ! known );
+
+			// Same order as Acumatica_Config::get_payment_config().
+			block.querySelector( '.acm-method-target code' ).textContent =
+				method || block.dataset.defaultMethod || slug.toUpperCase() || '—';
+
+			block.querySelector( '.acm-method-count' ).textContent = overrides === 0
+				? 'All defaults'
+				: overrides + ( overrides === 1 ? ' override' : ' overrides' );
+		}
+
+		list.addEventListener( 'input', function ( event ) {
+			var block = event.target.closest( '.acm-method' );
+			if ( block ) {
+				refresh( block );
+			}
+		} );
+
+		// Every summary quotes the default method, so they all move with it.
+		var fallback = document.querySelector( '.acm-defaults [data-key="acumatica_method"]' );
+		if ( fallback ) {
+			fallback.addEventListener( 'input', function () {
+				list.querySelectorAll( '.acm-method' ).forEach( function ( block ) {
+					block.dataset.defaultMethod = fallback.value.trim();
+					refresh( block );
+				} );
+			} );
 		}
 
 		add.addEventListener( 'click', function () {
@@ -40,10 +101,10 @@
 			list.appendChild( block );
 			syncEmpty();
 
-			var slug = list.lastElementChild.querySelector( '.acm-slug' );
-			if ( slug ) {
-				slug.focus();
-			}
+			// A new mapping opens: its summary has nothing to show yet.
+			var added = list.lastElementChild;
+			added.open = true;
+			added.querySelector( '.acm-slug' ).focus();
 		} );
 
 		list.addEventListener( 'click', function ( event ) {

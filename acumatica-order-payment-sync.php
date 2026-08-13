@@ -2,7 +2,7 @@
 /**
  * Plugin Name:       Acumatica Order & Payment Sync
  * Description:       Posts WooCommerce sales orders and AR payments to Acumatica ERP over OAuth2 when an order reaches processing.
- * Version:           1.1.1
+ * Version:           1.1.2
  * Author:            T37A
  * Text Domain:       acumatica-order-payment-sync
  * Requires at least: 6.8
