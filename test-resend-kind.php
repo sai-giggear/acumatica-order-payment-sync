@@ -17,6 +17,29 @@ function register_setting( ...$a ) {}
 function get_option( $name, $default = false ) {
     return $GLOBALS['acm_options'][ $name ] ?? $default;
 }
+function update_option( $name, $value, $autoload = null ) {
+    $GLOBALS['acm_options'][ $name ] = $value;
+    return true;
+}
+function add_option( $name, $value, $deprecated = '', $autoload = null ) {
+    if ( array_key_exists( $name, $GLOBALS['acm_options'] ) ) {
+        return false;
+    }
+    $GLOBALS['acm_options'][ $name ] = $value;
+    return true;
+}
+function delete_option( $name ) {
+    unset( $GLOBALS['acm_options'][ $name ] );
+    return true;
+}
+function esc_url_raw( $url ) {
+    return trim( (string) $url );
+}
+
+/** Store settings in the one option the plugin now reads. */
+function acm_settings( array $settings ): void {
+    $GLOBALS['acm_options'] = [ 'acumatica_settings' => $settings ];
+}
 function wp_unslash( $value ) {
     return is_string( $value ) ? stripslashes( $value ) : $value;
 }
@@ -109,29 +132,29 @@ assert( true  === acumatica_should_wait_for_fee( '_stripe_fee', '0', 0, false, 3
 assert( true  === acumatica_should_wait_for_fee( '_stripe_fee', '-1', 0, false, 3 ) );
 
 // --- fee timing options ---
-$GLOBALS['acm_options'] = [];
+acm_settings( [] );
 assert( 300 === acumatica_fee_retry_delay() );          // 5 minutes default
 assert( 3   === acumatica_fee_max_attempts() );
 
-$GLOBALS['acm_options'] = [ 'acumatica_fee_retry_delay' => 10, 'acumatica_fee_max_attempts' => 0 ];
+acm_settings( [ 'fee_retry_delay' => 10, 'fee_max_attempts' => 0 ] );
 assert( 600 === acumatica_fee_retry_delay() );
 assert( 0   === acumatica_fee_max_attempts() );
 
 // Junk must not produce a zero-delay retry storm or negative attempts.
-$GLOBALS['acm_options'] = [ 'acumatica_fee_retry_delay' => 0, 'acumatica_fee_max_attempts' => -5 ];
+acm_settings( [ 'fee_retry_delay' => 0, 'fee_max_attempts' => -5 ] );
 assert( 60 === acumatica_fee_retry_delay() );
 assert( 0  === acumatica_fee_max_attempts() );
 
 // --- endpoint path ---
-$GLOBALS['acm_options'] = [];
+acm_settings( [] );
 assert( 'entity/Default2/23.200.001' === acumatica_endpoint_path() );
 
 // Stray slashes would double up against the trailingslashit'd base URL.
-$GLOBALS['acm_options'] = [ 'acumatica_endpoint_path' => '/entity/Custom/24.200.001/' ];
+acm_settings( [ 'endpoint_path' => '/entity/Custom/24.200.001/' ] );
 assert( 'entity/Custom/24.200.001' === acumatica_endpoint_path() );
 
 // Blank falls back rather than building a URL with no endpoint at all.
-$GLOBALS['acm_options'] = [ 'acumatica_endpoint_path' => '   ' ];
+acm_settings( [ 'endpoint_path' => '   ' ] );
 assert( 'entity/Default2/23.200.001' === acumatica_endpoint_path() );
 
 // --- admin log filters ---
@@ -164,11 +187,25 @@ assert( [] === array_filter( acumatica_log_filters_from_request() ) );
 // --- secret keep-on-blank ---
 // The form renders these fields empty, so a blank post must keep the stored
 // credential. Wiping it on every save would break syncing site-wide.
-$GLOBALS['acm_options'] = [ 'acumatica_password' => 'stored-secret' ];
-assert( 'stored-secret' === acumatica_sanitize_secret( 'acumatica_password', '' ) );
-assert( 'stored-secret' === acumatica_sanitize_secret( 'acumatica_password', '   ' ) );
-assert( 'new-secret' === acumatica_sanitize_secret( 'acumatica_password', ' new-secret ' ) );
-assert( '' === acumatica_sanitize_secret( 'acumatica_client_secret', '' ) );
+acm_settings( [ 'password' => 'stored-secret', 'order_type' => 'WS' ] );
+
+$saved = Acumatica_Config::save( [ 'password' => '', 'order_type' => 'WS' ] );
+assert( 'stored-secret' === $saved['password'] );
+assert( 'stored-secret' === Acumatica_Config::save( [ 'password' => '   ' ] )['password'] );
+assert( 'new-secret' === Acumatica_Config::save( [ 'password' => ' new-secret ' ] )['password'] );
+assert( '' === $saved['client_secret'] );
+
+// Everything else posted blank is a real clear, or the screen could never empty
+// a field.
+assert( '' === Acumatica_Config::save( [ 'order_type' => '' ] )['order_type'] );
+
+// Types survive the round trip: a checkbox that posts nothing is off, and the
+// counters stay integers rather than becoming "3".
+$saved = Acumatica_Config::save( [ 'fee_retry_delay' => '10', 'fee_max_attempts' => '-2' ] );
+assert( '0' === $saved['enabled'] );
+assert( 10 === $saved['fee_retry_delay'] );
+assert( 0 === $saved['fee_max_attempts'] );
+assert( '1' === Acumatica_Config::save( [ 'enabled' => '1' ] )['enabled'] );
 
 // --- stored JSON rendering ---
 // A payload that was genuinely null and a row whose JSON is corrupt both used
@@ -194,11 +231,11 @@ assert( str_ends_with( $long, '[truncated]' ) );
 // The whole point of storing the host rather than deriving it: a staging copy
 // or a restored backup carries these same options, and only the mismatch tells
 // it apart. Getting this wrong posts test orders into production Acumatica.
-$GLOBALS['acm_options'] = [
-    'acumatica_site_host'  => 'shop.example.com',
-    'acumatica_order_type' => 'WS',
-    'acumatica_customer_id' => 'WEBSHOP',
-];
+acm_settings( [
+    'host'        => 'shop.example.com',
+    'order_type'  => 'WS',
+    'customer_id' => 'WEBSHOP',
+] );
 assert( true === Acumatica_Config::is_known_host() );
 assert( true === Acumatica_Config::sync_enabled() );
 
@@ -210,22 +247,27 @@ $GLOBALS['acm_home_url'] = 'https://shop.example.com';
 
 // Case and a pasted URL both normalise, so a mapping typed as "Shop.Example.com"
 // does not silently block every order.
-$GLOBALS['acm_options']['acumatica_site_host'] = 'Shop.Example.com';
-assert( 'shop.example.com' === acumatica_sanitize_host( ' HTTPS://Shop.Example.com/wp-admin/ ' ) );
+assert( 'shop.example.com' === Acumatica_Config::sanitize_host( ' HTTPS://Shop.Example.com/wp-admin/ ' ) );
+assert( 'shop.example.com' === Acumatica_Config::save( [ 'host' => 'Shop.Example.com' ] )['host'] );
 
 // An unmapped host is a different message from a mapped-but-wrong one.
-$GLOBALS['acm_options'] = [];
+acm_settings( [] );
 assert( false === Acumatica_Config::sync_enabled() );
 assert( str_contains( Acumatica_Config::sync_disabled_reason(), 'No site mapping' ) );
 
 // Host right but mapping half-filled still must not post.
-$GLOBALS['acm_options'] = [ 'acumatica_site_host' => 'shop.example.com', 'acumatica_order_type' => 'WS' ];
+acm_settings( [ 'host' => 'shop.example.com', 'order_type' => 'WS' ] );
 assert( false === Acumatica_Config::sync_enabled() );
 assert( str_contains( Acumatica_Config::sync_disabled_reason(), 'customer ID' ) );
 
+// Off by the switch, whatever else is set.
+acm_settings( [ 'host' => 'shop.example.com', 'order_type' => 'WS', 'customer_id' => 'WEBSHOP', 'enabled' => '0' ] );
+assert( false === Acumatica_Config::sync_enabled() );
+assert( str_contains( Acumatica_Config::sync_disabled_reason(), 'turned off' ) );
+
 // --- payment mapping ---
-$GLOBALS['acm_options'] = [
-    'acumatica_payment_fallback' => [
+acm_settings( [
+    'payment_defaults' => [
         'acumatica_method' => '',
         'entry_type'       => 'CHARGE',
         'fee_meta_key'     => '',
@@ -233,14 +275,14 @@ $GLOBALS['acm_options'] = [
         'fee_subaccount'   => '000000',
         'cash_account'     => '99003',
     ],
-    'acumatica_payment_map' => [
+    'payment_methods' => [
         [ 'wc_method' => 'stripe', 'acumatica_method' => 'STRIPE', 'entry_type' => 'STRIPE',
           'fee_meta_key' => '_stripe_fee', 'fee_account' => '99001', 'fee_subaccount' => '',
           'cash_account' => '' ],
         [ 'wc_method' => 'bacs', 'acumatica_method' => 'EFT', 'entry_type' => '',
           'fee_meta_key' => '', 'fee_account' => '', 'fee_subaccount' => '', 'cash_account' => '' ],
     ],
-];
+] );
 
 $stripe = Acumatica_Config::get_payment_config( 'stripe' );
 assert( 'STRIPE' === $stripe['acumatica_method'] );
@@ -253,7 +295,7 @@ assert( ! isset( $stripe['wc_method'] ) );
 
 // A method with no processor fee must not inherit one, or every payment on it
 // waits out the full retry schedule for a fee that never arrives.
-$GLOBALS['acm_options']['acumatica_payment_fallback']['fee_meta_key'] = '_some_fee';
+$GLOBALS['acm_options']['acumatica_settings']['payment_defaults']['fee_meta_key'] = '_some_fee';
 assert( '' === Acumatica_Config::get_payment_config( 'bacs' )['fee_meta_key'] );
 assert( '_stripe_fee' === Acumatica_Config::get_payment_config( 'stripe' )['fee_meta_key'] );
 
@@ -261,10 +303,32 @@ assert( '_stripe_fee' === Acumatica_Config::get_payment_config( 'stripe' )['fee_
 assert( 'ZIPMONEY' === Acumatica_Config::get_acumatica_payment_method( 'zipmoney' ) );
 assert( '99003' === Acumatica_Config::get_payment_config( 'zipmoney' )['cash_account'] );
 
+// Stripe registers one gateway per alternative method. Without prefix matching
+// these fall through to the fallback and post STRIPE_AFTERPAY_CLEARPAY as the
+// payment method, which Acumatica does not know.
+assert( 'STRIPE' === Acumatica_Config::get_acumatica_payment_method( 'stripe_afterpay_clearpay' ) );
+assert( 'STRIPE' === Acumatica_Config::get_acumatica_payment_method( 'stripe-klarna' ) );
+assert( '_stripe_fee' === Acumatica_Config::get_payment_config( 'stripe_klarna' )['fee_meta_key'] );
+
+// A block of its own still wins over the prefix.
+$GLOBALS['acm_options']['acumatica_settings']['payment_methods'][] = [
+    'wc_method' => 'stripe_afterpay_clearpay', 'acumatica_method' => 'AFTERPAY',
+];
+assert( 'AFTERPAY' === Acumatica_Config::get_acumatica_payment_method( 'stripe_afterpay_clearpay' ) );
+assert( 'STRIPE' === Acumatica_Config::get_acumatica_payment_method( 'stripe_klarna' ) );
+
+// The separator is required, so a slug that merely starts with another one is
+// not swallowed: "zip" must not answer for "zipmoney".
+$GLOBALS['acm_options']['acumatica_settings']['payment_methods'][] = [
+    'wc_method' => 'zip', 'acumatica_method' => 'ZIP',
+];
+assert( 'ZIPMONEY' === Acumatica_Config::get_acumatica_payment_method( 'zipmoney' ) );
+assert( 'ZIP' === Acumatica_Config::get_acumatica_payment_method( 'zip_pay' ) );
+
 // --- payment map sanitising ---
 // A block added and left unfilled, and one the Remove button deleted, both post
 // as a row with no slug. Storing those grows the option on every save.
-$saved = acumatica_sanitize_payment_map( [
+$saved = Acumatica_Config::sanitize_payment_rows( [
     [ 'wc_method' => ' stripe ', 'cash_account' => '99003' ],
     [ 'wc_method' => '', 'cash_account' => '99999' ],
     [ 'wc_method' => '   ' ],
@@ -277,9 +341,17 @@ assert( [] === array_diff_key( Acumatica_Config::blank_payment_row(), $saved[0] 
 // Unknown keys posted by hand are dropped rather than stored.
 assert( [] === array_diff_key( $saved[0], Acumatica_Config::blank_payment_row() ) );
 
+// Rows come back re-indexed. The form posts sparse indices once a middle block
+// has been removed, and a gap in the list would render as a missing block.
+$saved = Acumatica_Config::sanitize_payment_rows( [
+    3 => [ 'wc_method' => 'stripe' ],
+    7 => [ 'wc_method' => 'bacs' ],
+] );
+assert( [ 0, 1 ] === array_keys( $saved ) );
+
 // A stored row missing keys still resolves, since rows predate any field added
 // to PAYMENT_FIELDS later.
-$GLOBALS['acm_options']['acumatica_payment_map'] = [ [ 'wc_method' => 'cod' ] ];
+$GLOBALS['acm_options']['acumatica_settings']['payment_methods'] = [ [ 'wc_method' => 'cod' ] ];
 assert( 'COD' === Acumatica_Config::get_acumatica_payment_method( 'cod' ) );
 
 // --- mapping placeholders ---
@@ -302,6 +374,39 @@ assert( 'Slug, upper-cased' === acumatica_inherit_hint(
     'acumatica_method',
     Acumatica_Config::blank_payment_row()
 ) );
+
+// --- settings migration ---
+// A 1.0 site keeps one option per field. The first read after the update folds
+// them into acumatica_settings; miss one and a working site comes back with a
+// blank screen and no syncing.
+$GLOBALS['acm_options'] = [
+    'acumatica_site_host'   => 'shop.example.com',
+    'acumatica_password'    => 'stored-secret',
+    'acumatica_order_type'  => 'WS',
+    'acumatica_customer_id' => 'WEBSHOP',
+    'acumatica_payment_map' => [ [ 'wc_method' => 'stripe', 'acumatica_method' => 'STRIPE' ] ],
+];
+
+$migrated = Acumatica_Config::all();
+assert( 'shop.example.com' === $migrated['host'] );
+assert( 'stored-secret' === $migrated['password'] );
+assert( 'STRIPE' === Acumatica_Config::get_acumatica_payment_method( 'stripe' ) );
+assert( true === Acumatica_Config::sync_enabled() );
+
+// Fields the old install never had come back as defaults, not empty.
+assert( 'entity/Default2/23.200.001' === $migrated['endpoint_path'] );
+assert( '1' === $migrated['enabled'] );
+
+// Written once, old rows dropped. A second read that re-migrated would overwrite
+// whatever had been saved since, and would leave the password in two rows.
+assert( isset( $GLOBALS['acm_options']['acumatica_settings'] ) );
+assert( ! isset( $GLOBALS['acm_options']['acumatica_password'] ) );
+assert( ! isset( $GLOBALS['acm_options']['acumatica_site_host'] ) );
+
+// Nothing to migrate on a fresh install: defaults, and no option written.
+$GLOBALS['acm_options'] = [];
+assert( 'entity/Default2/23.200.001' === Acumatica_Config::all()['endpoint_path'] );
+assert( ! isset( $GLOBALS['acm_options']['acumatica_settings'] ) );
 
 // --- version ---
 // Read from the Version header rather than written twice. Empty means the regex

@@ -24,7 +24,24 @@ Everything lives on one screen, **Acumatica Sync → Settings**.
   inherited: a method with no processor fee would otherwise wait out the full
   retry schedule for a fee that never arrives.
 
+  A block also covers the gateway's own sub-methods. Stripe registers each
+  alternative method as a separate gateway (`stripe_afterpay_clearpay`,
+  `stripe_klarna`), and a `stripe` block answers for all of them unless one has
+  a block of its own.
+
 None of it is hardcoded.
+
+## Settings storage
+
+Everything on the settings screen lives in one option, `acumatica_settings`, not
+autoloaded. Sites set up before 1.1 kept one option per field; those are folded
+into it on the first read after the update and the old rows are deleted,
+credentials included. Downgrading below 1.1 means retyping the connection
+settings.
+
+Access tokens keep their own options. They are written mid-sync, and a settings
+save rewrites the whole array, so sharing a row would let a save clobber a token
+another request had just refreshed.
 
 ## Updates
 

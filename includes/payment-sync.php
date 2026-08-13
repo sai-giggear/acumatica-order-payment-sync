@@ -21,7 +21,7 @@ add_action( 'acumatica_sync_payment', 'acumatica_send_payment_request', 10, 3 );
  * so this is a tuning knob rather than a fixed constant. Floored at 1 minute.
  */
 function acumatica_fee_retry_delay(): int {
-    return max( 1, (int) get_option( 'acumatica_fee_retry_delay', 5 ) ) * MINUTE_IN_SECONDS;
+    return max( 1, (int) Acumatica_Config::get( 'fee_retry_delay' ) ) * MINUTE_IN_SECONDS;
 }
 
 /**
@@ -29,7 +29,7 @@ function acumatica_fee_retry_delay(): int {
  * Zero disables waiting entirely.
  */
 function acumatica_fee_max_attempts(): int {
-    return max( 0, (int) get_option( 'acumatica_fee_max_attempts', 3 ) );
+    return max( 0, (int) Acumatica_Config::get( 'fee_max_attempts' ) );
 }
 
 /**

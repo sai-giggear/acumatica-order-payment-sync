@@ -16,10 +16,9 @@ if ( ! defined( 'ABSPATH' ) ) {
  * Acumatica upgrade, so both are configurable.
  */
 function acumatica_endpoint_path(): string {
-    $default = 'entity/Default2/23.200.001';
-    $path    = trim( (string) get_option( 'acumatica_endpoint_path', $default ), " \t\n\r\0\x0B/" );
+    $path = trim( (string) Acumatica_Config::get( 'endpoint_path' ), " \t\n\r\0\x0B/" );
 
-    return $path !== '' ? $path : $default;
+    return $path !== '' ? $path : Acumatica_Config::DEFAULTS['endpoint_path'];
 }
 
 /**
@@ -33,7 +32,7 @@ function acumatica_endpoint_path(): string {
 function acumatica_api_request( string $endpoint, array $data, string $method = 'PUT' ): array {
     $start_time = microtime( true );
     
-    $base_url = get_option( 'acumatica_api_url' );
+    $base_url = (string) Acumatica_Config::get( 'api_url' );
     if ( empty( $base_url ) ) {
         return [
             'success'     => false,
@@ -194,8 +193,8 @@ function acumatica_try_refresh_token( string $token_url, string $client_id, stri
  * @return array|WP_Error
  */
 function acumatica_try_password_grant( string $token_url, string $client_id, string $client_secret ): array|WP_Error {
-    $username = get_option( 'acumatica_username' );
-    $password = get_option( 'acumatica_password' );
+    $username = (string) Acumatica_Config::get( 'username' );
+    $password = (string) Acumatica_Config::get( 'password' );
 
     if ( ! $username || ! $password ) {
         return new WP_Error( 'config_error', 'Acumatica username/password not configured' );
@@ -263,9 +262,9 @@ function acumatica_get_token( bool $force_refresh = false ): string|WP_Error {
         return $access_token;
     }
 
-    $token_url     = get_option( 'acumatica_token_url' );
-    $client_id     = get_option( 'acumatica_client_id' );
-    $client_secret = get_option( 'acumatica_client_secret' );
+    $token_url     = (string) Acumatica_Config::get( 'token_url' );
+    $client_id     = (string) Acumatica_Config::get( 'client_id' );
+    $client_secret = (string) Acumatica_Config::get( 'client_secret' );
 
     if ( ! $token_url || ! $client_id || ! $client_secret ) {
         return new WP_Error( 'config_error', 'Acumatica API credentials not configured' );

@@ -2,7 +2,7 @@
 /**
  * Plugin Name:       Acumatica Order & Payment Sync
  * Description:       Posts WooCommerce sales orders and AR payments to Acumatica ERP over OAuth2 when an order reaches processing.
- * Version:           1.0.2
+ * Version:           1.1.0
  * Author:            T37A
  * Text Domain:       acumatica-order-payment-sync
  * Requires at least: 6.8
@@ -161,6 +161,19 @@ register_activation_hook( __FILE__, function(): void {
         wp_schedule_event( time() + HOUR_IN_SECONDS, 'daily', 'acumatica_logs_purge_event' );
     }
 
+    // Activation runs from the plugins screen, before this plugin's own
+    // plugins_loaded include has happened.
+    require_once ACUMATICA_SYNC_PATH . 'includes/class-config.php';
+
+    // Before the seed below, which would otherwise create an empty settings row
+    // and leave the pre-1.1 options stranded behind it.
+    Acumatica_Config::migrate();
+
+    // Seeded so the row exists with autoload off from the start. Options created
+    // by a first save land on WordPress's own autoload default, and this one
+    // holds the Acumatica credentials.
+    add_option( Acumatica_Config::OPTION, Acumatica_Config::defaults(), '', false );
+
     acumatica_sync_harden_option_storage();
 
     // Recorded so the admin_init upgrade step below can tell it has already run.
@@ -198,16 +211,10 @@ add_action( 'acumatica_logs_purge_event', function(): void {
  */
 function acumatica_sync_private_options(): array {
     return [
+        Acumatica_Config::OPTION,
         'acumatica_access_token',
         'acumatica_access_token_expires',
         'acumatica_refresh_token',
-        'acumatica_client_id',
-        'acumatica_client_secret',
-        'acumatica_username',
-        'acumatica_password',
-        'acumatica_token_url',
-        'acumatica_api_url',
-        'acumatica_endpoint_path',
     ];
 }
 
@@ -230,6 +237,10 @@ add_action( 'admin_init', function(): void {
     if ( get_option( 'acumatica_sync_version' ) === ACUMATICA_SYNC_VERSION ) {
         return;
     }
+
+    // Pre-1.1 sites keep their settings in one option per field. Folding them
+    // into the single option is what makes the settings screen able to read them.
+    Acumatica_Config::migrate();
 
     acumatica_sync_harden_option_storage();
 

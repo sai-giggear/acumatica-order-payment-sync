@@ -141,6 +141,9 @@
 	position: sticky;
 	bottom: 0;
 	z-index: 10;
+	display: flex;
+	align-items: center;
+	gap: 12px;
 	margin-top: 28px;
 	padding: 12px 0;
 	background: var(--acm-bg-sunken);
@@ -260,8 +263,10 @@
 	background: var(--acm-border);
 }
 
-.acm-stat:hover,
-.acm-stat:focus {
+/* Anchors only: the settings screen uses the same tile as a read-only readout,
+   and lifting something that cannot be clicked reads as broken. */
+a.acm-stat:hover,
+a.acm-stat:focus {
 	border-color: var(--acm-accent);
 	transform: translateY( -1px );
 	color: inherit;
