@@ -602,6 +602,155 @@ a.acm-stat:focus {
 	}
 }
 
+/* Settings layout: section nav beside the form */
+
+.acm-layout {
+	display: grid;
+	grid-template-columns: 190px minmax( 0, 1fr );
+	gap: 28px;
+	align-items: start;
+	max-width: 1100px;
+}
+
+.acm-nav {
+	position: sticky;
+	top: calc( var( --wp-admin--admin-bar--height, 32px ) + 20px );
+	display: flex;
+	flex-direction: column;
+	gap: 2px;
+}
+
+.acm-nav a {
+	padding: 7px 12px;
+	border-left: 2px solid transparent;
+	border-radius: 0 6px 6px 0;
+	color: var(--acm-muted);
+	font-size: 13px;
+	font-weight: 500;
+	text-decoration: none;
+}
+
+.acm-nav a:hover,
+.acm-nav a:focus {
+	background: var(--acm-bg);
+	color: var(--acm-text);
+	box-shadow: none;
+}
+
+.acm-nav a.is-current {
+	background: var(--acm-bg);
+	border-left-color: var(--acm-accent);
+	color: var(--acm-accent);
+	font-weight: 600;
+}
+
+/* Sections inside the layout carry no rule of their own: the cards already
+   separate them, and a border under a heading on top of a card is noise. */
+.acm-settings .acm-section {
+	max-width: none;
+	margin: 0 0 32px;
+	padding-top: 0;
+	border-top: 0;
+	scroll-margin-top: calc( var( --wp-admin--admin-bar--height, 32px ) + 16px );
+}
+
+.acm-card {
+	margin-top: 12px;
+	padding: 4px 20px 8px;
+	background: var(--acm-bg);
+	border: 1px solid var(--acm-border);
+	border-radius: var(--acm-radius);
+	box-shadow: var(--acm-shadow);
+}
+
+.acm-card > h3 {
+	margin: 16px 0 0;
+	font-size: 11px;
+	font-weight: 700;
+	text-transform: uppercase;
+	letter-spacing: .05em;
+	color: var(--acm-muted);
+}
+
+.acm-card > .description {
+	margin: 8px 0 0;
+	max-width: 72ch;
+}
+
+.acm-row {
+	display: grid;
+	grid-template-columns: 170px minmax( 0, 1fr );
+	gap: 4px 20px;
+	padding: 16px 0;
+	border-top: 1px solid var(--acm-border-soft);
+}
+
+.acm-card > h3 + .acm-row,
+.acm-card > .acm-row:first-child {
+	border-top: 0;
+}
+
+.acm-row > label,
+.acm-row > .acm-row-label {
+	padding-top: 5px;
+	font-size: 13px;
+	font-weight: 600;
+}
+
+.acm-row .description {
+	margin: 6px 0 0;
+	max-width: 72ch;
+}
+
+.acm-row .acm-inline {
+	margin: 0;
+}
+
+.acm-toggle {
+	display: inline-flex;
+	align-items: center;
+	gap: 6px;
+	font-size: 13px;
+}
+
+.acm-buttons {
+	display: flex;
+	flex-wrap: wrap;
+	gap: 8px;
+	margin: 0;
+}
+
+/* The defaults card holds the same field grid as a method block, without the
+   block's own border sitting inside the card. */
+.acm-card > .acm-method-fields {
+	margin: 14px 0 12px;
+}
+
+@media screen and ( max-width: 960px ) {
+	.acm-layout {
+		grid-template-columns: 1fr;
+		gap: 12px;
+	}
+
+	.acm-nav {
+		position: static;
+		flex-direction: row;
+		flex-wrap: wrap;
+		gap: 4px;
+	}
+
+	.acm-nav a {
+		border-left: 0;
+		border-radius: 6px;
+		border: 1px solid var(--acm-border);
+		background: var(--acm-bg);
+	}
+
+	.acm-row {
+		grid-template-columns: 1fr;
+	}
+}
+
 /* Payment method mapping */
 
 /* One wrapping block per method. Seven fields in a row side-scrolled at every
