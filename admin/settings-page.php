@@ -534,6 +534,8 @@ function acumatica_sync_settings_page(): void {
                 <p class="description acm-section-intro">
                     One block per WooCommerce payment method. A blank field takes the default from
                     the Defaults block below, and each placeholder shows what that will send.
+                    A block also covers the gateway's sub-methods, so <code>stripe</code> catches
+                    <code>stripe_afterpay_clearpay</code> unless that has a block of its own.
                 </p>
 
                 <?php // Suggestions for the method field. Free text either way, so a

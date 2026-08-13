@@ -171,24 +171,41 @@ class Acumatica_Config {
     public static function get_payment_config( string $wc_method ): array {
         $fallback = self::get_payment_fallback();
         $config   = $fallback;
+        $match    = null;
 
         foreach ( self::get_payment_map() as $row ) {
-            if ( $row['wc_method'] !== $wc_method ) {
-                continue;
+            if ( $row['wc_method'] === $wc_method ) {
+                $match = $row;
+                break;
             }
 
+            // Gateways that register one slug per alternative method
+            // (stripe_afterpay_clearpay, stripe_klarna, ...) are covered by a
+            // "stripe" block, so the checkout method the customer picked does
+            // not have to be mapped one by one. Longest prefix wins, and the
+            // separator is required so "zip" cannot swallow "zippay".
+            $next = substr( $wc_method, strlen( $row['wc_method'] ), 1 );
+
+            if ( str_starts_with( $wc_method, $row['wc_method'] )
+                && ( '_' === $next || '-' === $next )
+                && ( null === $match || strlen( $row['wc_method'] ) > strlen( $match['wc_method'] ) )
+            ) {
+                $match = $row;
+            }
+        }
+
+        if ( null !== $match ) {
             // Blank cells inherit the fallback, so shared account numbers are
             // typed once.
             $config = array_merge(
                 $fallback,
-                array_filter( $row, static fn( string $value ): bool => '' !== $value )
+                array_filter( $match, static fn( string $value ): bool => '' !== $value )
             );
 
             // Except the fee key, which is taken literally. Inheriting it would
             // make a method with no processor fee (bank transfer, Zip) sit and
             // wait for one that never arrives.
-            $config['fee_meta_key'] = $row['fee_meta_key'];
-            break;
+            $config['fee_meta_key'] = $match['fee_meta_key'];
         }
 
         // No mapping at all: send the slug upper-cased and let Acumatica reject
