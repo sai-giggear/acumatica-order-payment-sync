@@ -9,17 +9,25 @@ if ( ! defined( 'ABSPATH' ) ) {
 }
 
 add_action( 'woocommerce_order_status_processing', 'acumatica_send_order_request', 10, 1 );
+
+/**
+ * Does the customer collect this order in person?
+ *
+ * Matches on the shipping method ID, not the label, so a renamed method still
+ * counts. 'local_pickup' is classic checkout, 'pickup_location' is Blocks.
+ */
 function acumatica_is_pickup_order( WC_Order $order ): bool {
+    $pickup_methods = apply_filters( 'acumatica_local_pickup_methods', [ 'local_pickup', 'pickup_location' ] );
+
     foreach ( $order->get_shipping_methods() as $shipping_item ) {
-        $method_id = $shipping_item->get_method_id();
- 
-        if ( 'pickup_location' === $method_id || 'local_pickup' === $method_id ) {
+        if ( in_array( $shipping_item->get_method_id(), $pickup_methods, true ) ) {
             return true;
         }
     }
- 
+
     return false;
 }
+
 /**
  * Sales Order payload for one WooCommerce order.
  */
@@ -93,7 +101,7 @@ function acumatica_build_order_payload( WC_Order $order, array $site_config, arr
 
     if ( acumatica_is_pickup_order( $order ) ) {
         $payload['ShipVia'] = [ 'value' => 'LOCAL PICK UP' ];
- 
+
         // Block checkout collects no shipping address for pickup, so overriding
         // with what Woo has would push a blank address into Acumatica. Drop the
         // override and let Acumatica use the customer default instead.

@@ -447,19 +447,4 @@ class Acumatica_Config {
     public static function get_acumatica_payment_method( string $wc_method ): string {
         return self::get_payment_config( $wc_method )['acumatica_method'];
     }
-
-    /**
-     * Does this shipping method mean the customer collects in person?
-     */
-    public static function is_local_pickup( string $shipping_method ): bool {
-        $method_lower = strtolower( trim( $shipping_method ) );
-        $pickup_methods = apply_filters( 'acumatica_local_pickup_methods', [
-            'local pickup',
-            'click n collect',
-            'click and collect',
-            'pickup',
-        ] );
-
-        return in_array( $method_lower, $pickup_methods, true );
-    }
 }
