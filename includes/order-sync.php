@@ -9,7 +9,17 @@ if ( ! defined( 'ABSPATH' ) ) {
 }
 
 add_action( 'woocommerce_order_status_processing', 'acumatica_send_order_request', 10, 1 );
-
+function acumatica_is_pickup_order( WC_Order $order ): bool {
+    foreach ( $order->get_shipping_methods() as $shipping_item ) {
+        $method_id = $shipping_item->get_method_id();
+ 
+        if ( 'pickup_location' === $method_id || 'local_pickup' === $method_id ) {
+            return true;
+        }
+    }
+ 
+    return false;
+}
 /**
  * Sales Order payload for one WooCommerce order.
  */
@@ -81,9 +91,14 @@ function acumatica_build_order_payload( WC_Order $order, array $site_config, arr
         }
     }
 
-    $shipping_method = $order->get_shipping_method();
-    if ( Acumatica_Config::is_local_pickup( $shipping_method ) ) {
+    if ( acumatica_is_pickup_order( $order ) ) {
         $payload['ShipVia'] = [ 'value' => 'LOCAL PICK UP' ];
+ 
+        // Block checkout collects no shipping address for pickup, so overriding
+        // with what Woo has would push a blank address into Acumatica. Drop the
+        // override and let Acumatica use the customer default instead.
+        unset( $payload['ShipToAddress'] );
+        $payload['ShipToAddressOverride'] = [ 'value' => false ];
     }
 
     return apply_filters( 'acumatica_order_payload', $payload, $order );
