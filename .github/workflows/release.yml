@@ -1,17 +1,56 @@
 name: Release
 
-# Push a tag, get an installable zip. Sites pick it up from the release asset.
-#   git tag v2.2.0 && git push origin v2.2.0
+# Push to main with a bumped Version header, get an installable zip. The tag is
+# created from the header, so there is nothing to tag by hand. Pushes that do
+# not change the version are a no-op.
 on:
   push:
-    tags:
-      - 'v*'
+    branches:
+      - main
 
 permissions:
   contents: write
 
+# Two pushes in quick succession would both try to cut the same release and the
+# loser would fail on an existing tag. Queue them instead.
+concurrency:
+  group: release
+  cancel-in-progress: false
+
 jobs:
+  check:
+    runs-on: ubuntu-latest
+    outputs:
+      version: ${{ steps.v.outputs.version }}
+      needed: ${{ steps.v.outputs.needed }}
+    steps:
+      - uses: actions/checkout@v4
+
+      # The Version header is the only place the version is written, and
+      # ACUMATICA_SYNC_VERSION is read from it. Whatever it says is what gets
+      # released, so an unchanged header means there is nothing to do.
+      - id: v
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          version=$(grep -oP '^\s*\*\s*Version:\s*\K\S+' acumatica-order-payment-sync.php)
+          if [ -z "$version" ]; then
+            echo "::error::No Version header in acumatica-order-payment-sync.php."
+            exit 1
+          fi
+          echo "version=$version" >> "$GITHUB_OUTPUT"
+
+          if gh release view "v$version" >/dev/null 2>&1; then
+            echo "v$version is already released, nothing to do."
+            echo "needed=false" >> "$GITHUB_OUTPUT"
+          else
+            echo "v$version is new, building it."
+            echo "needed=true" >> "$GITHUB_OUTPUT"
+          fi
+
   release:
+    needs: check
+    if: needs.check.outputs.needed == 'true'
     runs-on: ubuntu-latest
 
     steps:
@@ -20,19 +59,6 @@ jobs:
       - uses: shivammathur/setup-php@v2
         with:
           php-version: '8.3'
-
-      # The Version header is the only place the version is written, and
-      # ACUMATICA_SYNC_VERSION is read from it. A tag that disagrees ships a
-      # release whose zip installs as a different version, so refuse to build.
-      - name: Version must agree with the tag
-        run: |
-          tag="${GITHUB_REF_NAME#v}"
-          header=$(grep -oP '^\s*\*\s*Version:\s*\K\S+' acumatica-order-payment-sync.php)
-          echo "tag=$tag header=$header"
-          if [ "$tag" != "$header" ]; then
-            echo "::error::Version mismatch. Bump the Version header to $tag."
-            exit 1
-          fi
 
       - name: Lint
         run: find . -name '*.php' -not -path './vendor/*' -print0 | xargs -0 -n1 -P4 php -l
@@ -56,10 +82,12 @@ jobs:
             ./ build/acumatica-order-payment-sync/
           cd build && zip -qr ../acumatica-order-payment-sync.zip acumatica-order-payment-sync
 
+      # gh tags the release commit itself, so the tag can never disagree with
+      # the Version header it was built from.
       - name: Publish
         env:
           GH_TOKEN: ${{ github.token }}
+          TAG: v${{ needs.check.outputs.version }}
         run: |
-          gh release create "$GITHUB_REF_NAME" --generate-notes --title "$GITHUB_REF_NAME" \
-            || echo "Release already exists, uploading asset to it."
-          gh release upload "$GITHUB_REF_NAME" acumatica-order-payment-sync.zip --clobber
+          gh release create "$TAG" --target "$GITHUB_SHA" --generate-notes --title "$TAG"
+          gh release upload "$TAG" acumatica-order-payment-sync.zip --clobber
